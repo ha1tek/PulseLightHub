@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Backgrounds -->
+    <color name="bg_dark">#0B0C0E</color>
+    <color name="surface_card">#16171B</color>
+    <color name="surface_card_alt">#1D1E24</color>
+    <color name="surface_search">#16171B</color>
+    <color name="border_subtle">#262831</color>
+    <color name="border_pill">#2E313D</color>
+
+    <!-- Exact Solid Blue Brand Accent (#7294F0 from user image) -->
+    <color name="brand_blue">#7294F0</color>
+    <color name="volt_lime">#7294F0</color>
+
+    <!-- Typography -->
+    <color name="text_black">#0C101A</color>
+    <color name="text_white">#F5F6F8</color>
+    <color name="text_secondary">#8E909A</color>
+    <color name="text_muted">#5A5D69</color>
+    <color name="text_hint">#555866</color>
+
+    <!-- System / Status -->
+    <color name="status_green">#7294F0</color>
+    <color name="status_red">#FF453A</color>
+    <color name="badge_red_bg">#321516</color>
+    <color name="badge_red_border">#5E2023</color>
+</resources>

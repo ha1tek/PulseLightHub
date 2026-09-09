@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="28dp"
+    android:viewportWidth="48"
+    android:viewportHeight="28">
+    <!-- Equalizer bars matching Reference 2 -->
+    <path
+        android:strokeColor="#0A0B0D"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M6,8 L6,20 M14,4 L14,24 M22,10 L22,18 M30,2 L30,26 M38,6 L38,22 M46,11 L46,17" />
+</vector>

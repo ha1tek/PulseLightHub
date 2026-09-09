@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Pulse Light Hub</string>
+    <string name="app_subtitle">Realme GT 5 • Awakening Halo</string>
+    <string name="status_active">АКТИВНО</string>
+    <string name="status_need_perm">НЕТ ДОСТУПА</string>
+    <string name="search_hint">Поиск по названию или пакету…</string>
+    <string name="stats_title">Музыкальная подсветка</string>
+    <string name="filter_all">Все</string>
+    <string name="filter_active">Только активные</string>
+    <string name="filter_music">Рекомендуемые</string>
+    <string name="reset_button">Заводской список</string>
+    <string name="loading">Загрузка приложений…</string>
+    <string name="perm_dialog_title">Требуется разрешение ADB</string>
+    <string name="perm_dialog_msg">Для управления подсветкой требуется один раз предоставить разрешение через ADB:\n\nadb shell pm grant com.antigravity.pulselight android.permission.WRITE_SECURE_SETTINGS\n\nКоманда скопирована в буфер обмена при нажатии кнопки ниже.</string>
+    <string name="perm_copy">Скопировать команду</string>
+    <string name="perm_check">Проверить снова</string>
+    <string name="reset_confirm_title">Сброс к заводскому списку</string>
+    <string name="reset_confirm_msg">Восстановить заводской список китайских плееров по умолчанию?</string>
+    <string name="btn_cancel">Отмена</string>
+    <string name="btn_reset">Сбросить</string>
+    <string name="toast_updated">Список Pulse Light обновлен!</string>
+    <string name="toast_copied">Команда скопирована в буфер обмена</string>
+</resources>

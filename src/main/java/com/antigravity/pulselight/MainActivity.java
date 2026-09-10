@@ -80,8 +80,6 @@ public class MainActivity extends Activity {
     private TextView btnColorModeSegment;
     private TextView btnColorModeRandom;
     private ColorSliderView colorSliderPicker;
-    private View viewColorPreviewDot;
-    private TextView tvColorHex;
     private TextView btnPulseAll;
     private TextView btnTurnOff;
 
@@ -384,8 +382,6 @@ public class MainActivity extends Activity {
         btnColorModeRandom = findViewById(R.id.btn_color_mode_random);
 
         colorSliderPicker = findViewById(R.id.color_slider_picker);
-        viewColorPreviewDot = findViewById(R.id.view_color_preview_dot);
-        tvColorHex = findViewById(R.id.tv_color_hex);
 
         btnPulseAll = findViewById(R.id.btn_pulse_all);
         btnTurnOff = findViewById(R.id.btn_turn_off);
@@ -407,16 +403,6 @@ public class MainActivity extends Activity {
                 applyTargetColor(color);
             }
         });
-
-        View.OnClickListener colorPreviewClick = v -> {
-            int curColor = getCurrentTargetColor();
-            if (glyphVectorView != null) {
-                glyphVectorView.pulsePreview(curColor);
-            }
-            RealmeGlyphDriver.flashSegment(RealmeGlyphDriver.LED_ALL, curColor, 600);
-        };
-        viewColorPreviewDot.setOnClickListener(colorPreviewClick);
-        tvColorHex.setOnClickListener(colorPreviewClick);
 
         btnPulseAll.setOnClickListener(v -> {
             int curColor = getCurrentTargetColor();
@@ -472,7 +458,6 @@ public class MainActivity extends Activity {
         if (colorSliderPicker != null) {
             colorSliderPicker.setColor(color);
         }
-        updateColorDisplay(color);
         if (glyphVectorView != null) {
             glyphVectorView.setPreviewColor(color);
         }
@@ -485,21 +470,8 @@ public class MainActivity extends Activity {
         if (colorSliderPicker != null) {
             colorSliderPicker.setColor(color);
         }
-        updateColorDisplay(color);
         if (glyphVectorView != null) {
             glyphVectorView.updateColorsFromManager();
-        }
-    }
-
-    private void updateColorDisplay(int color) {
-        if (viewColorPreviewDot != null) {
-            GradientDrawable dot = new GradientDrawable();
-            dot.setShape(GradientDrawable.OVAL);
-            dot.setColor(color);
-            viewColorPreviewDot.setBackground(dot);
-        }
-        if (tvColorHex != null) {
-            tvColorHex.setText(String.format("#%06X", (0xFFFFFF & color)));
         }
     }
 

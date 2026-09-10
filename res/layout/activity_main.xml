@@ -227,57 +227,10 @@
                     android:padding="14dp"
                     android:visibility="visible">
 
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical">
-
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:text="АППАРАТНЫЕ ЦВЕТА СВЕТОДИОДОВ (HAL)"
-                            android:textColor="@color/text_secondary"
-                            android:textSize="11sp"
-                            android:letterSpacing="0.08"
-                            android:textStyle="bold" />
-
-                        <!-- Active Color Preview Pill -->
-                        <LinearLayout
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:gravity="center_vertical"
-                            android:background="@drawable/bg_pill_dark"
-                            android:paddingStart="8dp"
-                            android:paddingEnd="12dp"
-                            android:paddingTop="4dp"
-                            android:paddingBottom="4dp">
-
-                            <View
-                                android:id="@+id/view_color_preview_dot"
-                                android:layout_width="14dp"
-                                android:layout_height="14dp"
-                                android:background="@drawable/bg_pill_lime" />
-
-                            <TextView
-                                android:id="@+id/tv_color_hex"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginStart="8dp"
-                                android:text="#A820FF"
-                                android:textColor="@color/text_white"
-                                android:textSize="11sp"
-                                android:textStyle="bold" />
-                        </LinearLayout>
-                    </LinearLayout>
-
                     <!-- Mode Selectors (Music Base, Beat Flicker, Always-On Aura) -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="38dp"
-                        android:layout_marginTop="12dp"
                         android:orientation="horizontal">
 
                         <TextView
@@ -325,11 +278,11 @@
                             android:focusable="true" />
                     </LinearLayout>
 
-                    <!-- Elevated Color Cards (9 Calibrated Colors with Pop Animation) -->
+                    <!-- Elevated Color Cards (15 Calibrated Colors in 3x5 Grid) -->
                     <com.antigravity.pulselight.ColorSliderView
                         android:id="@+id/color_slider_picker"
                         android:layout_width="match_parent"
-                        android:layout_height="62dp"
+                        android:layout_height="wrap_content"
                         android:layout_marginTop="12dp"
                         android:layout_marginBottom="6dp" />
                 </LinearLayout>

@@ -186,21 +186,7 @@ public class RealmeGlyphView extends View {
     public void setPower(boolean on) {
         mAlwaysOnState = on;
         mRestingIntensity = on ? 0.85f : 0.0f;
-        cancelSegmentAnim(RealmeGlyphDriver.LED_ALL);
-
-        ValueAnimator anim = ValueAnimator.ofFloat(mIntensityA, mRestingIntensity);
-        anim.setDuration(350);
-        anim.setInterpolator(new AccelerateDecelerateInterpolator());
-        anim.addUpdateListener(a -> {
-            float val = (float) a.getAnimatedValue();
-            mIntensityA = val;
-            mIntensityB = val;
-            mIntensityC = val;
-            mIntensityD = val;
-            postInvalidateOnAnimation();
-        });
-        registerAnim(RealmeGlyphDriver.LED_ALL, anim);
-        anim.start();
+        fadeSegmentToResting(RealmeGlyphDriver.LED_ALL, 350);
     }
 
     /**
@@ -249,63 +235,40 @@ public class RealmeGlyphView extends View {
         mColorB = color;
         mColorC = color;
         mColorD = color;
-        cancelSegmentAnim(RealmeGlyphDriver.LED_ALL);
-
-        ValueAnimator anim = ValueAnimator.ofFloat(0.90f, mRestingIntensity);
-        anim.setDuration(400);
-        anim.setInterpolator(new DecelerateInterpolator());
-        anim.addUpdateListener(a -> {
-            float val = (float) a.getAnimatedValue();
-            mIntensityA = val;
-            mIntensityB = val;
-            mIntensityC = val;
-            mIntensityD = val;
-            postInvalidateOnAnimation();
-        });
-        registerAnim(RealmeGlyphDriver.LED_ALL, anim);
-        anim.start();
+        fadeSegmentToResting(RealmeGlyphDriver.LED_ALL, 400);
     }
 
     /**
      * Pulses all segments once to demonstrate the new color, then smoothly fades out.
      */
     public void pulsePreview(int color) {
-        cancelSegmentAnim(RealmeGlyphDriver.LED_ALL);
         mColorA = color;
         mColorB = color;
         mColorC = color;
         mColorD = color;
-
-        ValueAnimator anim = ValueAnimator.ofFloat(1.0f, mRestingIntensity);
-        anim.setDuration(550);
-        anim.setInterpolator(new DecelerateInterpolator());
-        anim.addUpdateListener(a -> {
-            float val = (float) a.getAnimatedValue();
-            mIntensityA = val;
-            mIntensityB = val;
-            mIntensityC = val;
-            mIntensityD = val;
-            postInvalidateOnAnimation();
-        });
-        registerAnim(RealmeGlyphDriver.LED_ALL, anim);
-        anim.start();
+        setSegmentIntensity(RealmeGlyphDriver.LED_ALL, 1.0f, color);
+        fadeSegmentToResting(RealmeGlyphDriver.LED_ALL, 550);
     }
 
     public void setSegmentIntensity(int segmentBitmask, float intensity, int color) {
         float val = Math.max(0f, Math.min(1f, intensity));
         if ((segmentBitmask & RealmeGlyphDriver.LED_A) != 0) {
+            if (mAnimA != null) { mAnimA.cancel(); mAnimA = null; }
             mIntensityA = val;
             if (color != 0) mColorA = color;
         }
         if ((segmentBitmask & RealmeGlyphDriver.LED_B) != 0) {
+            if (mAnimB != null) { mAnimB.cancel(); mAnimB = null; }
             mIntensityB = val;
             if (color != 0) mColorB = color;
         }
         if ((segmentBitmask & RealmeGlyphDriver.LED_C) != 0) {
+            if (mAnimC != null) { mAnimC.cancel(); mAnimC = null; }
             mIntensityC = val;
             if (color != 0) mColorC = color;
         }
         if ((segmentBitmask & RealmeGlyphDriver.LED_D) != 0) {
+            if (mAnimD != null) { mAnimD.cancel(); mAnimD = null; }
             mIntensityD = val;
             if (color != 0) mColorD = color;
         }
@@ -313,30 +276,86 @@ public class RealmeGlyphView extends View {
     }
 
     public void flashSegment(int segmentBitmask, int color, int durationMs) {
-        cancelSegmentAnim(segmentBitmask);
-        ValueAnimator anim = ValueAnimator.ofFloat(1.0f, mRestingIntensity);
-        anim.setDuration(durationMs);
-        anim.setInterpolator(new DecelerateInterpolator());
-        anim.addUpdateListener(animation -> {
-            float val = (float) animation.getAnimatedValue();
-            setSegmentIntensity(segmentBitmask, val, color);
-        });
-        registerAnim(segmentBitmask, anim);
-        anim.start();
+        setSegmentIntensity(segmentBitmask, 1.0f, color);
+        fadeSegmentToResting(segmentBitmask, durationMs);
     }
 
-    private void cancelSegmentAnim(int mask) {
+    public void fadeSegmentToResting(int mask, int durationMs) {
+        if ((mask & RealmeGlyphDriver.LED_A) != 0) animateSegment(RealmeGlyphDriver.LED_A, mRestingIntensity, durationMs);
+        if ((mask & RealmeGlyphDriver.LED_B) != 0) animateSegment(RealmeGlyphDriver.LED_B, mRestingIntensity, durationMs);
+        if ((mask & RealmeGlyphDriver.LED_C) != 0) animateSegment(RealmeGlyphDriver.LED_C, mRestingIntensity, durationMs);
+        if ((mask & RealmeGlyphDriver.LED_D) != 0) animateSegment(RealmeGlyphDriver.LED_D, mRestingIntensity, durationMs);
+    }
+
+    private void animateSegment(int segment, float targetIntensity, int durationMs) {
+        if (segment == RealmeGlyphDriver.LED_A) {
+            if (mAnimA != null) { mAnimA.cancel(); mAnimA = null; }
+            if (Math.abs(mIntensityA - targetIntensity) < 0.01f) {
+                mIntensityA = targetIntensity;
+                postInvalidateOnAnimation();
+                return;
+            }
+            mAnimA = ValueAnimator.ofFloat(mIntensityA, targetIntensity);
+            mAnimA.setDuration(durationMs);
+            mAnimA.setInterpolator(new DecelerateInterpolator());
+            mAnimA.addUpdateListener(a -> {
+                mIntensityA = (float) a.getAnimatedValue();
+                postInvalidateOnAnimation();
+            });
+            mAnimA.start();
+        } else if (segment == RealmeGlyphDriver.LED_B) {
+            if (mAnimB != null) { mAnimB.cancel(); mAnimB = null; }
+            if (Math.abs(mIntensityB - targetIntensity) < 0.01f) {
+                mIntensityB = targetIntensity;
+                postInvalidateOnAnimation();
+                return;
+            }
+            mAnimB = ValueAnimator.ofFloat(mIntensityB, targetIntensity);
+            mAnimB.setDuration(durationMs);
+            mAnimB.setInterpolator(new DecelerateInterpolator());
+            mAnimB.addUpdateListener(a -> {
+                mIntensityB = (float) a.getAnimatedValue();
+                postInvalidateOnAnimation();
+            });
+            mAnimB.start();
+        } else if (segment == RealmeGlyphDriver.LED_C) {
+            if (mAnimC != null) { mAnimC.cancel(); mAnimC = null; }
+            if (Math.abs(mIntensityC - targetIntensity) < 0.01f) {
+                mIntensityC = targetIntensity;
+                postInvalidateOnAnimation();
+                return;
+            }
+            mAnimC = ValueAnimator.ofFloat(mIntensityC, targetIntensity);
+            mAnimC.setDuration(durationMs);
+            mAnimC.setInterpolator(new DecelerateInterpolator());
+            mAnimC.addUpdateListener(a -> {
+                mIntensityC = (float) a.getAnimatedValue();
+                postInvalidateOnAnimation();
+            });
+            mAnimC.start();
+        } else if (segment == RealmeGlyphDriver.LED_D) {
+            if (mAnimD != null) { mAnimD.cancel(); mAnimD = null; }
+            if (Math.abs(mIntensityD - targetIntensity) < 0.01f) {
+                mIntensityD = targetIntensity;
+                postInvalidateOnAnimation();
+                return;
+            }
+            mAnimD = ValueAnimator.ofFloat(mIntensityD, targetIntensity);
+            mAnimD.setDuration(durationMs);
+            mAnimD.setInterpolator(new DecelerateInterpolator());
+            mAnimD.addUpdateListener(a -> {
+                mIntensityD = (float) a.getAnimatedValue();
+                postInvalidateOnAnimation();
+            });
+            mAnimD.start();
+        }
+    }
+
+    public void cancelSegmentAnim(int mask) {
         if ((mask & RealmeGlyphDriver.LED_A) != 0 && mAnimA != null) { mAnimA.cancel(); mAnimA = null; }
         if ((mask & RealmeGlyphDriver.LED_B) != 0 && mAnimB != null) { mAnimB.cancel(); mAnimB = null; }
         if ((mask & RealmeGlyphDriver.LED_C) != 0 && mAnimC != null) { mAnimC.cancel(); mAnimC = null; }
         if ((mask & RealmeGlyphDriver.LED_D) != 0 && mAnimD != null) { mAnimD.cancel(); mAnimD = null; }
-    }
-
-    private void registerAnim(int mask, ValueAnimator anim) {
-        if ((mask & RealmeGlyphDriver.LED_A) != 0) mAnimA = anim;
-        if ((mask & RealmeGlyphDriver.LED_B) != 0) mAnimB = anim;
-        if ((mask & RealmeGlyphDriver.LED_C) != 0) mAnimC = anim;
-        if ((mask & RealmeGlyphDriver.LED_D) != 0) mAnimD = anim;
     }
 
     @Override
@@ -495,12 +514,14 @@ public class RealmeGlyphView extends View {
                     getParent().requestDisallowInterceptTouchEvent(true);
                 }
                 int currentHit = hitTest(x, y);
-                if (currentHit != 0 && currentHit != mActiveTouchSegment) {
+                if (currentHit != mActiveTouchSegment) {
                     if (mActiveTouchSegment != 0) {
                         handleSegmentTouch(mActiveTouchSegment, false);
                     }
                     mActiveTouchSegment = currentHit;
-                    handleSegmentTouch(currentHit, true);
+                    if (currentHit != 0) {
+                        handleSegmentTouch(currentHit, true);
+                    }
                 }
                 return true;
 
@@ -513,6 +534,8 @@ public class RealmeGlyphView extends View {
                     handleSegmentTouch(mActiveTouchSegment, false);
                     mActiveTouchSegment = 0;
                 }
+                fadeSegmentToResting(RealmeGlyphDriver.LED_ALL, 260);
+                RealmeGlyphDriver.turnOff();
                 return true;
         }
         return super.onTouchEvent(event);
@@ -553,7 +576,6 @@ public class RealmeGlyphView extends View {
         int color = getSegmentColor(segmentMask);
         if (isDown) {
             triggerHaptic();
-            cancelSegmentAnim(segmentMask);
             setSegmentIntensity(segmentMask, 1.0f, color);
 
             // Instant physical hardware LED flash on Realme GT 5!
@@ -563,8 +585,8 @@ public class RealmeGlyphView extends View {
                 mListener.onSegmentToggled(segmentMask, color);
             }
         } else {
-            // Finger lifted: smoothly fade back to resting intensity (0.0f)
-            flashSegment(segmentMask, color, 280);
+            // Finger lifted or left segment: smoothly fade back to resting intensity
+            fadeSegmentToResting(segmentMask, 260);
             RealmeGlyphDriver.turnOff();
         }
     }

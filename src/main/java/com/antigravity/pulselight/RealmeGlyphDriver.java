@@ -180,43 +180,64 @@ public class RealmeGlyphDriver {
         flashSegment(ledsMask, color, 0);
     }
 
+    // Hardware-calibrated profiles verified directly on Realme GT 5 Qualcomm Lights HAL:
+    // Every single profile uses Mode 5 (horse_race_lamp) for guaranteed 1-to-1 per-segment addressing
+    // with exact physical LED colors from oplusLights.xml / Lights HAL table.
+    private static final int[][] COLOR_PROFILES = new int[][]{
+            // UI R, G, B,  Hardware 32-bit payload
+            // --- 8 СТРОГО ЗАФИКСИРОВАННЫХ ЦВЕТОВ (БЕЗ ИЗМЕНЕНИЙ) ---
+            { 253, 255, 251, (int) 0x8BFDFFFBL }, // 0: Белый (#FDFFFB) -> HAL: r:120, g:87, b:87
+            { 255,  59,  48, (int) 0x8C790000L }, // 2: Красный (#FF3B30) -> HAL: r:121, g:0, b:0
+            { 255, 149,   0, (int) 0x8BFFBE14L }, // 3: Оранжевый (#FF9500) -> HAL: r:121, g:9, b:0
+            { 255, 234,   0, (int) 0x8BFFFC3BL }, // 4: Желтый (#FFEA00) -> HAL: r:69, g:57, b:0
+            {   0, 230, 118, (int) 0x8D007400L }, // 5: Зеленый (#00E676) -> HAL: r:0, g:116, b:0
+            { 113, 187, 255, (int) 0x8B00FF19L }, // 6: Голубой (#71BBFF) -> HAL: r:0, g:38, b:60
+            {  41, 121, 255, (int) 0x8B74BBFFL }, // 7: Синий (#2979FF) -> HAL: r:0, g:0, b:85
+            { 168,  32, 255, (int) 0x8C71BBFFL }, // 8: Фиолетовый (#A820FF) -> HAL: r:42, g:0, b:60
+
+            // --- РОЗОВЫЙ ГРАДИЕНТ (Pink + Blue dual-tone) ---
+            { 255,  45, 122, (int) 0x8BFFFFF0L }, // 1: Розовый (#FF2D7A / #FFFFF0) -> HAL: r:127,127,49,49 (Pink + Blue)
+
+            // --- НОВЫЕ АППАРАТНЫЕ ЦВЕТА HAL ---
+            { 255, 167, 255, (int) 0x8BFFA7FFL }, // 9: Неоновый Розовый (#FFA7FF) -> HAL: r:77, g:0, b:34 (Pure Pink)
+            {   0, 255,  27, (int) 0x8B00FF1BL }, // 10: Изумрудный (#00FF1B) -> HAL: r:0, g:67, b:40 (Teal Green)
+            { 255, 255, 241, (int) 0x8BFFFFF1L }, // 11: Оранжево-Розовый (#FFFFF1) -> HAL: Orange + Pink
+            { 255, 255, 242, (int) 0x8BFFFFF2L }, // 12: Сине-Желтый (#FFFFF2) -> HAL: Blue + Yellow
+            { 255, 255, 243, (int) 0x8BFFFFF3L }, // 13: Аква-Мята (#FFFFF3) -> HAL: Cyan + Mint
+            { 255, 255, 244, (int) 0x8BFFFFF4L }  // 14: Золотой Лайм (#FFFFF4) -> HAL: Gold + Lime
+    };
+
     public static int getHardwareColorForRgb(int color) {
         return getHardwareColorForRgb(color, LED_ALL);
     }
 
     public static int getHardwareColorForRgb(int color, int ledsMask) {
+        int rgb = color & 0x00FFFFFF;
+        if (rgb == 0xFFFF0 || rgb == 0xFF2D7A) return (int) 0x8BFFFFF0L;
+        if (rgb == 0xFFFF1) return (int) 0x8BFFFFF1L;
+        if (rgb == 0xFFFF2) return (int) 0x8BFFFFF2L;
+        if (rgb == 0xFFFF3) return (int) 0x8BFFFFF3L;
+        if (rgb == 0xFFFF4) return (int) 0x8BFFFFF4L;
+        if (rgb == 0xFFA7FF) return (int) 0x8BFFA7FFL;
+        if (rgb == 0x00FF1B) return (int) 0x8B00FF1BL;
+
         int r = (color >> 16) & 0xFF;
         int g = (color >> 8) & 0xFF;
         int b = color & 0xFF;
 
-        // Step 1: Белый (0x8B) и Зеленый (0x8D) остаются нетронутыми.
-        // Все 6 проблемных цветов (Розовый, Оранжевый, Желтый, Голубой, Синий, Фиолетовый)
-        // получают профиль 0x8C (Красный) 1 в 1 для гарантированной по-сегментной работы.
-        int[][] presets = new int[][]{
-                {0x8B, 253, 255, 251}, // 0: Белый (#FDFFFB) -> 0x8B (Белый)
-                {0x8C, 255, 45, 122},  // 1: Розовый (#FF2D7A) -> 0x8C (логика Красного)
-                {0x8C, 255, 59, 48},   // 2: Красный (#FF3B30) -> 0x8C (Красный эталон)
-                {0x8C, 255, 149, 0},   // 3: Оранжевый (#FF9500) -> 0x8C (логика Красного)
-                {0x8C, 255, 234, 0},   // 4: Желтый (#FFEA00) -> 0x8C (логика Красного)
-                {0x8D, 0, 230, 118},   // 5: Зеленый (#00E676) -> 0x8D (Зеленый)
-                {0x8C, 113, 187, 255}, // 6: Голубой (#71BBFF) -> 0x8C (логика Красного)
-                {0x8C, 41, 121, 255},  // 7: Синий (#2979FF) -> 0x8C (логика Красного)
-                {0x8C, 168, 32, 255}   // 8: Фиолетовый (#A820FF) -> 0x8C (логика Красного)
-        };
-
-        int bestId = 0x8C;
+        int bestPayload = (int) 0x8C71BBFFL;
         int minDistance = Integer.MAX_VALUE;
-        for (int[] p : presets) {
-            int dr = r - p[1];
-            int dg = g - p[2];
-            int db = b - p[3];
+        for (int[] p : COLOR_PROFILES) {
+            int dr = r - p[0];
+            int dg = g - p[1];
+            int db = b - p[2];
             int dist = dr * dr + dg * dg + db * db;
             if (dist < minDistance) {
                 minDistance = dist;
-                bestId = p[0];
+                bestPayload = p[3];
             }
         }
-        return (bestId << 24) | (color & 0x00FFFFFF);
+        return bestPayload;
     }
 
     public static void flashSegment(int ledsMask, int color, int autoTurnOffMs) {

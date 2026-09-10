@@ -139,13 +139,10 @@ public class PulseDaemon {
                             setFlashingMethod.invoke(ipm, targetId, 0, 0, 0, 5);
                         } catch (Throwable ignored) {}
                         try {
-                            setFlashingMethod.invoke(ipm, targetId, 0x11000000, 0, 0, 0);
-                        } catch (Throwable ignored) {}
-                        try {
                             setFlashingMethod.invoke(ipm, targetId, 0, 0, 0, 0);
                         } catch (Throwable ignored) {}
                     } else {
-                        int hwColor = RealmeGlyphDriver.getHardwareColorForRgb(rgb);
+                        int hwColor = RealmeGlyphDriver.getHardwareColorForRgb(rgb, leds);
                         System.out.println("PulseDaemon: Flash (targetId=" + targetId + ", hwColor=0x" + Integer.toHexString(hwColor) + ", leds=" + leds + ", mode=" + targetMode + ")");
                         try {
                             setFlashingMethod.invoke(ipm, targetId, hwColor, leds, 0, targetMode);

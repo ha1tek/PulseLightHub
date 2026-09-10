@@ -16,7 +16,7 @@ public class RealmeGlyphDriver {
     public static final int LED_D = 2;     // Left vertical bar
     public static final int LED_ALL = 15;  // 1 | 8 | 4 | 2 = 15
 
-    public static final int LIGHT_ID_HALO = 5; // Light ID 5 maps to rear Awakening Halo
+    public static final int LIGHT_ID_HALO = 7; // IPowerManager id 7 maps to Light id 6 (vendor.qti.lights awakening halo)
     public static final int MODE_MULTI_LED = 5;
 
     public static final int DAEMON_PORT = 49152;
@@ -111,9 +111,8 @@ public class RealmeGlyphDriver {
 
     private static boolean callNativeTurnOff(int lightId) {
         boolean ok1 = transactFlashing(lightId, 0, 0, 0, 5);
-        boolean ok2 = transactFlashing(lightId, 0x11000000, 0, 0, 0);
-        boolean ok3 = transactFlashing(lightId, 0, 0, 0, 0);
-        return ok1 || ok3;
+        boolean ok2 = transactFlashing(lightId, 0, 0, 0, 0);
+        return ok1 || ok2;
     }
 
     public static boolean isConnected() {
@@ -181,7 +180,45 @@ public class RealmeGlyphDriver {
     }
 
     public static int getHardwareColorForRgb(int color) {
+        return getHardwareColorForRgb(color, LED_ALL);
+    }
+
+    public static int getHardwareColorForRgb(int color, int ledsMask) {
         int high = (color >> 24) & 0xFF;
+        boolean isSingleSegment = (ledsMask != LED_ALL && ledsMask != 0);
+
+        if (isSingleSegment) {
+            // In Mode 5 (horse_race_lamp), Qualcomm Lights HAL only supports individual segment masking
+            // for IDs 0x8C (Red), 0x8D (Green), and 0x8B (White). Other IDs (0x8A, 0x81, 0x19) are in
+            // Mode 1 (new_always_on) which hardcodes all 4 LEDs.
+            if (high == 0x8C || high == 0x8D || high == 0x8B) {
+                return (high << 24) | (color & 0x00FFFFFF);
+            }
+            int r = (color >> 16) & 0xFF;
+            int g = (color >> 8) & 0xFF;
+            int b = color & 0xFF;
+
+            int[][] singlePresets = new int[][]{
+                    {0x8C, 255, 59, 48},   // Racing Red (0x8C)
+                    {0x8D, 0, 230, 118},   // Matrix Green (0x8D)
+                    {0x8B, 253, 255, 251}  // Pure White (0x8B)
+            };
+            int bestId = 0x8B;
+            int minDistance = Integer.MAX_VALUE;
+            for (int[] p : singlePresets) {
+                int dr = r - p[1];
+                int dg = g - p[2];
+                int db = b - p[3];
+                int dist = dr * dr + dg * dg + db * db;
+                if (dist < minDistance) {
+                    minDistance = dist;
+                    bestId = p[0];
+                }
+            }
+            return (bestId << 24) | (color & 0x00FFFFFF);
+        }
+
+        // Full chassis (all 4 glyphs): all 6 hardware profiles available
         if (high == 0x8A || high == 0x8B || high == 0x8C || high == 0x8D || high == 0x81 || high == 0x19) {
             return (high << 24) | (color & 0x00FFFFFF);
         }
@@ -190,13 +227,6 @@ public class RealmeGlyphDriver {
         int g = (color >> 8) & 0xFF;
         int b = color & 0xFF;
 
-        // Hardware-calibrated profiles verified on Realme GT 5 Qualcomm Lights HAL:
-        // 0x8A: GT Purple / Violet (#A820FF, r:42, g:0, b:60)
-        // 0x8B: Pure White (#FDFFFB, r:120, g:87, b:87)
-        // 0x8C: Racing Red (#FF3B30, r:121, g:0, b:0)
-        // 0x8D: Matrix Green (#00E676, r:0, g:116, b:0)
-        // 0x81: Cyber Amber / Orange (#FF9500, r:121, g:9, b:0)
-        // 0x19: Cyber Pink / Magenta (#FF2D55, r:127, g:13, b:41)
         int[][] presets = new int[][]{
                 {0x8A, 168, 32, 255},  // GT Purple
                 {0x8B, 253, 255, 251}, // White
@@ -227,7 +257,7 @@ public class RealmeGlyphDriver {
             sAutoStopRunnable = null;
         }
 
-        int hwColor = getHardwareColorForRgb(color);
+        int hwColor = getHardwareColorForRgb(color, ledsMask);
         int r = (color >> 16) & 0xFF;
         int g = (color >> 8) & 0xFF;
         int b = color & 0xFF;
@@ -235,15 +265,6 @@ public class RealmeGlyphDriver {
         boolean nativeOk = callNativeSetFlashing(LIGHT_ID_HALO, hwColor, ledsMask, MODE_MULTI_LED);
         if (!nativeOk) {
             sendPacket((byte) LIGHT_ID_HALO, (byte) MODE_MULTI_LED, (byte) r, (byte) g, (byte) b, (byte) ledsMask);
-        }
-
-        // Keep Settings.Global synced
-        if (sAppContext != null) {
-            try {
-                String hex = PulseLightManager.colorToHex(color);
-                PulseLightManager.setGlobalString(sAppContext, PulseLightManager.KEY_MUSIC_COLOR, hex);
-                PulseLightManager.setGlobalInt(sAppContext, PulseLightManager.KEY_MASTER_SWITCH, 1);
-            } catch (Throwable ignored) {}
         }
 
         if (autoTurnOffMs > 0) {

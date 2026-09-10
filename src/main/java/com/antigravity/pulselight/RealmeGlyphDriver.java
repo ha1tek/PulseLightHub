@@ -185,38 +185,26 @@ public class RealmeGlyphDriver {
     }
 
     public static int getHardwareColorForRgb(int color, int ledsMask) {
-        int high = (color >> 24) & 0xFF;
-        if (high == 0x8A || high == 0x8B || high == 0x8C || high == 0x8D || high == 0x81 || high == 0x19) {
-            return (high << 24) | (color & 0x00FFFFFF);
-        }
-
         int r = (color >> 16) & 0xFF;
         int g = (color >> 8) & 0xFF;
         int b = color & 0xFF;
 
-        // Hardware-calibrated profiles verified on Realme GT 5 Qualcomm Lights HAL:
-        // 0x8B: Pure White (#FDFFFB, r:120, g:87, b:87)
-        // 0x19: Cyber Pink / Magenta (#FF2D7A, r:127, g:13, b:41)
-        // 0x8C: Racing Red (#FF3B30, r:121, g:0, b:0)
-        // 0x81: Cyber Amber / Orange (#FF9500, r:121, g:9, b:0)
-        // 0x81: Neon Yellow / Warm Amber (#FFEA00, r:121, g:9, b:0)
-        // 0x8D: Matrix Green (#00E676, r:0, g:116, b:0)
-        // 0x8A: Realme Cyan / GT Blue (#71BBFF, r:42, g:0, b:60)
-        // 0x8A: Electric Blue (#2979FF, r:42, g:0, b:60)
-        // 0x8A: GT Purple / Violet (#A820FF, r:42, g:0, b:60)
+        // Step 1: Белый (0x8B) и Зеленый (0x8D) остаются нетронутыми.
+        // Все 6 проблемных цветов (Розовый, Оранжевый, Желтый, Голубой, Синий, Фиолетовый)
+        // получают профиль 0x8C (Красный) 1 в 1 для гарантированной по-сегментной работы.
         int[][] presets = new int[][]{
-                {0x8B, 253, 255, 251}, // 0: Белый (#FDFFFB)
-                {0x19, 255, 45, 122},  // 1: Розовый (#FF2D7A)
-                {0x8C, 255, 59, 48},   // 2: Красный (#FF3B30)
-                {0x81, 255, 149, 0},   // 3: Оранжевый (#FF9500)
-                {0x81, 255, 234, 0},   // 4: Желтый (#FFEA00) -> 0x81 (Cyber Amber, 4 LEDs solid)
-                {0x8D, 0, 230, 118},   // 5: Зеленый (#00E676)
-                {0x8A, 113, 187, 255}, // 6: Голубой (#71BBFF) -> 0x8A (GT Blue, 4 LEDs solid)
-                {0x8A, 41, 121, 255},  // 7: Синий (#2979FF) -> 0x8A (GT Blue, 4 LEDs solid)
-                {0x8A, 168, 32, 255}   // 8: Фиолетовый (#A820FF) -> 0x8A (GT Purple, 4 LEDs solid)
+                {0x8B, 253, 255, 251}, // 0: Белый (#FDFFFB) -> 0x8B (Белый)
+                {0x8C, 255, 45, 122},  // 1: Розовый (#FF2D7A) -> 0x8C (логика Красного)
+                {0x8C, 255, 59, 48},   // 2: Красный (#FF3B30) -> 0x8C (Красный эталон)
+                {0x8C, 255, 149, 0},   // 3: Оранжевый (#FF9500) -> 0x8C (логика Красного)
+                {0x8C, 255, 234, 0},   // 4: Желтый (#FFEA00) -> 0x8C (логика Красного)
+                {0x8D, 0, 230, 118},   // 5: Зеленый (#00E676) -> 0x8D (Зеленый)
+                {0x8C, 113, 187, 255}, // 6: Голубой (#71BBFF) -> 0x8C (логика Красного)
+                {0x8C, 41, 121, 255},  // 7: Синий (#2979FF) -> 0x8C (логика Красного)
+                {0x8C, 168, 32, 255}   // 8: Фиолетовый (#A820FF) -> 0x8C (логика Красного)
         };
 
-        int bestId = 0x8B;
+        int bestId = 0x8C;
         int minDistance = Integer.MAX_VALUE;
         for (int[] p : presets) {
             int dr = r - p[1];

@@ -37,9 +37,9 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
-                android:text="Pulse Light"
+                android:text="Pulse Light Hub"
                 android:textColor="@color/text_white"
-                android:textSize="24sp"
+                android:textSize="22sp"
                 android:fontFamily="sans-serif-medium"
                 android:textStyle="bold" />
         </LinearLayout>
@@ -63,46 +63,847 @@
             android:focusable="true" />
     </LinearLayout>
 
-    <!-- Main List Container -->
+    <!-- Main Navigation Bar (3 Tabs) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="10dp"
+        android:background="@color/bg_dark">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:orientation="horizontal"
+            android:background="@drawable/bg_tab_container"
+            android:padding="4dp">
+
+            <TextView
+                android:id="@+id/nav_tab_apps"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:background="@drawable/bg_pill_lime"
+                android:text="Плееры"
+                android:textColor="@color/text_black"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:clickable="true"
+                android:focusable="true" />
+
+            <TextView
+                android:id="@+id/nav_tab_studio"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1.2"
+                android:gravity="center"
+                android:background="@null"
+                android:text="Глиф-Студия"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:clickable="true"
+                android:focusable="true" />
+
+            <TextView
+                android:id="@+id/nav_tab_engine"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1.3"
+                android:gravity="center"
+                android:background="@null"
+                android:text="Аудио-Движок"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:clickable="true"
+                android:focusable="true" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Dynamic Page Host (Strictly one active page in RenderNode tree, zero ghosting) -->
     <FrameLayout
+        android:id="@+id/page_container"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1">
+        android:layout_weight="1"
+        android:background="@color/bg_dark">
 
-        <ListView
-            android:id="@+id/app_list"
+        <!-- ================= PAGE 1: APPS WHITELIST ================= -->
+        <FrameLayout
+            android:id="@+id/page_apps"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:divider="@null"
-            android:dividerHeight="0dp"
-            android:clipToPadding="false"
-            android:paddingBottom="36dp"
-            android:scrollingCache="false"
-            android:animationCache="false"
-            android:smoothScrollbar="true"
-            android:cacheColorHint="#00000000"
-            android:fadingEdge="none"
+            android:background="@color/bg_dark"
+            android:visibility="visible">
+
+            <ListView
+                android:id="@+id/app_list"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:divider="@null"
+                android:dividerHeight="0dp"
+                android:clipToPadding="false"
+                android:paddingBottom="36dp"
+                android:scrollingCache="false"
+                android:animationCache="false"
+                android:smoothScrollbar="true"
+                android:cacheColorHint="#00000000"
+                android:fadingEdge="none"
+                android:overScrollMode="never"
+                android:scrollbars="none" />
+
+            <ProgressBar
+                android:id="@+id/loading_progress"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginTop="120dp"
+                android:indeterminateTint="@color/volt_lime" />
+
+            <TextView
+                android:id="@+id/empty_view"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginTop="120dp"
+                android:text="Приложения не найдены"
+                android:textColor="@color/text_muted"
+                android:textSize="14sp"
+                android:visibility="gone" />
+        </FrameLayout>
+
+        <!-- ================= PAGE 2: GLYPH STUDIO ================= -->
+        <ScrollView
+            android:id="@+id/page_studio"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:background="@color/bg_dark"
+            android:visibility="gone"
             android:overScrollMode="never"
-            android:scrollbars="none" />
+            android:scrollbars="none">
 
-        <ProgressBar
-            android:id="@+id/loading_progress"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:layout_marginTop="120dp"
-            android:indeterminateTint="@color/volt_lime" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@color/bg_dark"
+                android:orientation="vertical"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="24dp">
 
-        <TextView
-            android:id="@+id/empty_view"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:layout_marginTop="140dp"
-            android:text="Приложения не найдены"
-            android:textColor="@color/text_secondary"
-            android:textSize="14sp"
-            android:visibility="gone" />
+                <!-- 1:1 Awakening Halo Landscape Replica -->
+                <com.antigravity.pulselight.RealmeGlyphView
+                    android:id="@+id/glyph_vector_view"
+                    android:layout_width="match_parent"
+                    android:layout_height="225dp" />
+
+                <!-- Tap Instruction Banner -->
+                <TextView
+                    android:id="@+id/tv_studio_hint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:gravity="center"
+                    android:text="Нажмите на сегменты макета для проверки подсветки"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+                <!-- Hardware HAL Color Picker Card -->
+                <LinearLayout
+                    android:id="@+id/card_color_picker_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:orientation="vertical"
+                    android:background="@drawable/bg_card_dark"
+                    android:padding="14dp"
+                    android:visibility="visible">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="АППАРАТНЫЕ ЦВЕТА СВЕТОДИОДОВ (HAL)"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="11sp"
+                            android:letterSpacing="0.08"
+                            android:textStyle="bold" />
+
+                        <!-- Active Color Preview Pill -->
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:background="@drawable/bg_pill_dark"
+                            android:paddingStart="8dp"
+                            android:paddingEnd="12dp"
+                            android:paddingTop="4dp"
+                            android:paddingBottom="4dp">
+
+                            <View
+                                android:id="@+id/view_color_preview_dot"
+                                android:layout_width="14dp"
+                                android:layout_height="14dp"
+                                android:background="@drawable/bg_pill_lime" />
+
+                            <TextView
+                                android:id="@+id/tv_color_hex"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="8dp"
+                                android:text="#A820FF"
+                                android:textColor="@color/text_white"
+                                android:textSize="11sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <!-- Mode Selectors (Music Base, Beat Flicker, Always-On Aura) -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="38dp"
+                        android:layout_marginTop="12dp"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/btn_color_mode_unified"
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_weight="1"
+                            android:layout_marginEnd="6dp"
+                            android:gravity="center"
+                            android:background="@drawable/bg_pill_lime"
+                            android:text="Музыка"
+                            android:textColor="@color/text_black"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:clickable="true"
+                            android:focusable="true" />
+
+                        <TextView
+                            android:id="@+id/btn_color_mode_segment"
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_weight="1"
+                            android:layout_marginEnd="6dp"
+                            android:gravity="center"
+                            android:background="@drawable/bg_pill_dark"
+                            android:text="Бит"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:clickable="true"
+                            android:focusable="true" />
+
+                        <TextView
+                            android:id="@+id/btn_color_mode_random"
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_weight="1.2"
+                            android:gravity="center"
+                            android:background="@drawable/bg_pill_dark"
+                            android:text="Always-On"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:clickable="true"
+                            android:focusable="true" />
+                    </LinearLayout>
+
+                    <!-- Hardware HAL Color Chips: Row 1 -->
+                    <LinearLayout
+                        android:id="@+id/layout_segment_selector"
+                        android:layout_width="match_parent"
+                        android:layout_height="34dp"
+                        android:layout_marginTop="10dp"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/btn_select_seg_a"
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_weight="1"
+                            android:layout_marginEnd="5dp"
+                            android:gravity="center"
+                            android:background="@drawable/bg_pill_dark"
+                            android:text="Фиолетовый"
+                            android:textColor="@color/text_white"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:clickable="true" />
+
+                        <TextView
+                            android:id="@+id/btn_select_seg_b"
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_weight="1"
+                            android:layout_marginEnd="5dp"
+                            android:gravity="center"
+                            android:background="@drawable/bg_pill_dark"
+                            android:text="Белый"
+                            android:textColor="@color/text_white"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:clickable="true" />
+
+                        <TextView
+                            android:id="@+id/btn_select_seg_c"
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_weight="1"
+                            android:gravity="center"
+                            android:background="@drawable/bg_pill_dark"
+                            android:text="Красный"
+                            android:textColor="@color/text_white"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:clickable="true" />
+                    </LinearLayout>
+
+                    <!-- Hardware HAL Color Chips: Row 2 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="34dp"
+                        android:layout_marginTop="6dp"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/btn_select_seg_d"
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_weight="1"
+                            android:layout_marginEnd="5dp"
+                            android:gravity="center"
+                            android:background="@drawable/bg_pill_dark"
+                            android:text="Зеленый"
+                            android:textColor="@color/text_white"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:clickable="true" />
+
+                        <TextView
+                            android:id="@+id/btn_select_seg_e"
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_weight="1"
+                            android:layout_marginEnd="5dp"
+                            android:gravity="center"
+                            android:background="@drawable/bg_pill_dark"
+                            android:text="Оранжевый"
+                            android:textColor="@color/text_white"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:clickable="true" />
+
+                        <TextView
+                            android:id="@+id/btn_select_seg_f"
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_weight="1"
+                            android:gravity="center"
+                            android:background="@drawable/bg_pill_dark"
+                            android:text="Розовый"
+                            android:textColor="@color/text_white"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:clickable="true" />
+                    </LinearLayout>
+
+                    <!-- Chromatic Hue Wheel (Full Spectrum, no black) -->
+                    <com.antigravity.pulselight.ColorWheelView
+                        android:id="@+id/color_wheel_picker"
+                        android:layout_width="190dp"
+                        android:layout_height="190dp"
+                        android:layout_gravity="center_horizontal"
+                        android:layout_marginTop="8dp"
+                        android:layout_marginBottom="4dp" />
+                </LinearLayout>
+
+                <!-- Action Buttons -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="42dp"
+                    android:layout_marginTop="10dp"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/btn_pulse_all"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1.2"
+                        android:layout_marginEnd="8dp"
+                        android:gravity="center"
+                        android:background="@drawable/bg_button_blue"
+                        android:text="Включить Always-On"
+                        android:textColor="@color/text_black"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:clickable="true"
+                        android:focusable="true" />
+
+                    <TextView
+                        android:id="@+id/btn_turn_off"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="0.8"
+                        android:gravity="center"
+                        android:background="@drawable/bg_button_dark"
+                        android:text="Выключить"
+                        android:textColor="@color/text_white"
+                        android:textSize="13sp"
+                        android:clickable="true"
+                        android:focusable="true" />
+                </LinearLayout>
+            </LinearLayout>
+        </ScrollView>
+
+        <!-- ================= PAGE 3: AUDIO ENGINE ================= -->
+        <ScrollView
+            android:id="@+id/page_engine"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:background="@color/bg_dark"
+            android:visibility="gone"
+            android:overScrollMode="never"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@color/bg_dark"
+                android:orientation="vertical"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingTop="6dp"
+                android:paddingBottom="24dp">
+
+                <!-- Hero Switch Card -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:background="@drawable/bg_card_dark"
+                    android:padding="16dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="СИСТЕМНЫЙ ДВИЖОК ПОДСВЕТКИ"
+                                android:textColor="@color/volt_lime"
+                                android:textSize="11sp"
+                                android:letterSpacing="0.08"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="Режим 24/7 и пресеты"
+                                android:textColor="@color/text_white"
+                                android:textSize="18sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tv_engine_status_desc"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:text="Режим 24/7 активен • Подсветка работает круглосуточно"
+                                android:textColor="@color/text_muted"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+
+                        <com.antigravity.pulselight.ModernSwitch
+                            android:id="@+id/switch_audio_engine"
+                            android:layout_width="52dp"
+                            android:layout_height="32dp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Live 4-Band Visualizer Card -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:orientation="vertical"
+                    android:background="@drawable/bg_card_dark"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="СПЕКТР ЧАСТОТ (РЕАЛЬНОЕ ВРЕМЯ)"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="11sp"
+                        android:letterSpacing="0.08"
+                        android:textStyle="bold" />
+
+                    <com.antigravity.pulselight.BandVisualizerView
+                        android:id="@+id/band_visualizer"
+                        android:layout_width="match_parent"
+                        android:layout_height="90dp"
+                        android:layout_marginTop="10dp" />
+                </LinearLayout>
+
+                <!-- Presets Card -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:orientation="vertical"
+                    android:background="@drawable/bg_card_dark"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="МУЗЫКАЛЬНЫЕ ПРЕСЕТЫ"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="11sp"
+                        android:letterSpacing="0.08"
+                        android:textStyle="bold" />
+
+                    <HorizontalScrollView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:overScrollMode="never"
+                        android:scrollbars="none">
+
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:id="@+id/chip_preset_nothing"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginEnd="8dp"
+                                android:background="@drawable/bg_pill_lime"
+                                android:paddingStart="14dp"
+                                android:paddingEnd="14dp"
+                                android:paddingTop="7dp"
+                                android:paddingBottom="7dp"
+                                android:text="⚡ Nothing Phone Pure"
+                                android:textColor="@color/text_black"
+                                android:textSize="12sp"
+                                android:textStyle="bold"
+                                android:clickable="true" />
+
+                            <TextView
+                                android:id="@+id/chip_preset_phonk"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginEnd="8dp"
+                                android:background="@drawable/bg_pill_dark"
+                                android:paddingStart="14dp"
+                                android:paddingEnd="14dp"
+                                android:paddingTop="7dp"
+                                android:paddingBottom="7dp"
+                                android:text="🔊 Phonk / 808 Bass"
+                                android:textColor="@color/text_white"
+                                android:textSize="12sp"
+                                android:clickable="true" />
+
+                            <TextView
+                                android:id="@+id/chip_preset_rock"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginEnd="8dp"
+                                android:background="@drawable/bg_pill_dark"
+                                android:paddingStart="14dp"
+                                android:paddingEnd="14dp"
+                                android:paddingTop="7dp"
+                                android:paddingBottom="7dp"
+                                android:text="🥁 Rock / Drums"
+                                android:textColor="@color/text_white"
+                                android:textSize="12sp"
+                                android:clickable="true" />
+
+                            <TextView
+                                android:id="@+id/chip_preset_edm"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginEnd="8dp"
+                                android:background="@drawable/bg_pill_dark"
+                                android:paddingStart="14dp"
+                                android:paddingEnd="14dp"
+                                android:paddingTop="7dp"
+                                android:paddingBottom="7dp"
+                                android:text="🎹 EDM / Club"
+                                android:textColor="@color/text_white"
+                                android:textSize="12sp"
+                                android:clickable="true" />
+
+                            <TextView
+                                android:id="@+id/chip_preset_custom"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:background="@drawable/bg_pill_dark"
+                                android:paddingStart="14dp"
+                                android:paddingEnd="14dp"
+                                android:paddingTop="7dp"
+                                android:paddingBottom="7dp"
+                                android:text="🎛️ Custom"
+                                android:textColor="@color/text_white"
+                                android:textSize="12sp"
+                                android:clickable="true" />
+                        </LinearLayout>
+                    </HorizontalScrollView>
+                </LinearLayout>
+
+                <!-- Trigger Combinations Card -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:orientation="vertical"
+                    android:background="@drawable/bg_card_dark"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="КОМБИНАЦИИ ТРИГГЕРОВ (AUDIO ANALYZER)"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="11sp"
+                        android:letterSpacing="0.08"
+                        android:textStyle="bold" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/btn_trigger_kick_only"
+                            android:layout_width="match_parent"
+                            android:layout_height="38dp"
+                            android:layout_marginBottom="6dp"
+                            android:gravity="center_vertical"
+                            android:background="@drawable/bg_pill_lime"
+                            android:paddingStart="16dp"
+                            android:text="1. Только Kick (минимализм Nothing Phone)"
+                            android:textColor="@color/text_black"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            android:clickable="true" />
+
+                        <TextView
+                            android:id="@+id/btn_trigger_kick_snare"
+                            android:layout_width="match_parent"
+                            android:layout_height="38dp"
+                            android:layout_marginBottom="6dp"
+                            android:gravity="center_vertical"
+                            android:background="@drawable/bg_pill_dark"
+                            android:paddingStart="16dp"
+                            android:text="2. Kick + Snare (Бочка = верх/низ, Снейр = бока)"
+                            android:textColor="@color/text_white"
+                            android:textSize="12sp"
+                            android:clickable="true" />
+
+                        <TextView
+                            android:id="@+id/btn_trigger_split"
+                            android:layout_width="match_parent"
+                            android:layout_height="38dp"
+                            android:layout_marginBottom="6dp"
+                            android:gravity="center_vertical"
+                            android:background="@drawable/bg_pill_dark"
+                            android:paddingStart="16dp"
+                            android:text="3. 4-полосный сплит (Низ, Лево, Право, Верх)"
+                            android:textColor="@color/text_white"
+                            android:textSize="12sp"
+                            android:clickable="true" />
+
+                        <TextView
+                            android:id="@+id/btn_trigger_energy"
+                            android:layout_width="match_parent"
+                            android:layout_height="38dp"
+                            android:gravity="center_vertical"
+                            android:background="@drawable/bg_pill_dark"
+                            android:paddingStart="16dp"
+                            android:text="4. Энергетические уровни (1 до 4 диодов по громкости)"
+                            android:textColor="@color/text_white"
+                            android:textSize="12sp"
+                            android:clickable="true" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Tuning Sliders Card -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:orientation="vertical"
+                    android:background="@drawable/bg_card_dark"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="ПАРАМЕТРЫ ДЕТЕКЦИИ И ЗАТУХАНИЯ"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="11sp"
+                        android:letterSpacing="0.08"
+                        android:textStyle="bold" />
+
+                    <!-- Sensitivity / Spectral Flux Threshold -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Чувствительность удара"
+                            android:textColor="@color/text_white"
+                            android:textSize="13sp" />
+
+                        <TextView
+                            android:id="@+id/tv_sensitivity_value"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="1.35x"
+                            android:textColor="@color/volt_lime"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <SeekBar
+                        android:id="@+id/seek_sensitivity"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:max="100"
+                        android:progress="40"
+                        android:progressTint="@color/volt_lime"
+                        android:thumbTint="@color/volt_lime" />
+
+                    <!-- Decay Release Time -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Время затухания вспышки"
+                            android:textColor="@color/text_white"
+                            android:textSize="13sp" />
+
+                        <TextView
+                            android:id="@+id/tv_decay_value"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="70 ms"
+                            android:textColor="@color/volt_lime"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <SeekBar
+                        android:id="@+id/seek_decay"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:max="260"
+                        android:progress="35"
+                        android:progressTint="@color/volt_lime"
+                        android:thumbTint="@color/volt_lime" />
+                </LinearLayout>
+
+                <!-- Hardware Daemon Status Card -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="@drawable/bg_card_dark"
+                    android:padding="16dp">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="СИСТЕМНЫЙ СТАТУС"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="11sp"
+                            android:letterSpacing="0.08"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tv_daemon_status"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Native Settings.Global (Offline)"
+                            android:textColor="@color/volt_lime"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/btn_reconnect_daemon"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_pill_dark"
+                        android:paddingStart="12dp"
+                        android:paddingEnd="12dp"
+                        android:paddingTop="6dp"
+                        android:paddingBottom="6dp"
+                        android:text="Проверить"
+                        android:textColor="@color/text_white"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:clickable="true" />
+                </LinearLayout>
+
+            </LinearLayout>
+        </ScrollView>
+
     </FrameLayout>
-
 </LinearLayout>

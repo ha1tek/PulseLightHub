@@ -79,9 +79,7 @@ public class MainActivity extends Activity {
     private TextView btnColorModeUnified;
     private TextView btnColorModeSegment;
     private TextView btnColorModeRandom;
-    private View layoutSegmentSelector;
-    private TextView btnSelectSegA, btnSelectSegB, btnSelectSegC, btnSelectSegD, btnSelectSegE, btnSelectSegF;
-    private ColorWheelView colorWheelPicker;
+    private ColorSliderView colorSliderPicker;
     private View viewColorPreviewDot;
     private TextView tvColorHex;
     private TextView btnPulseAll;
@@ -385,15 +383,7 @@ public class MainActivity extends Activity {
         btnColorModeSegment = findViewById(R.id.btn_color_mode_segment);
         btnColorModeRandom = findViewById(R.id.btn_color_mode_random);
 
-        layoutSegmentSelector = findViewById(R.id.layout_segment_selector);
-        btnSelectSegA = findViewById(R.id.btn_select_seg_a);
-        btnSelectSegB = findViewById(R.id.btn_select_seg_b);
-        btnSelectSegC = findViewById(R.id.btn_select_seg_c);
-        btnSelectSegD = findViewById(R.id.btn_select_seg_d);
-        btnSelectSegE = findViewById(R.id.btn_select_seg_e);
-        btnSelectSegF = findViewById(R.id.btn_select_seg_f);
-
-        colorWheelPicker = findViewById(R.id.color_wheel_picker);
+        colorSliderPicker = findViewById(R.id.color_slider_picker);
         viewColorPreviewDot = findViewById(R.id.view_color_preview_dot);
         tvColorHex = findViewById(R.id.tv_color_hex);
 
@@ -404,30 +394,17 @@ public class MainActivity extends Activity {
         btnColorModeSegment.setOnClickListener(v -> setColorTarget(TARGET_MUSIC_FLICKER));
         btnColorModeRandom.setOnClickListener(v -> setColorTarget(TARGET_ALWAYS_ON));
 
-        // 6 Calibrated Hardware HAL Color Presets (Verified on Realme GT 5)
-        btnSelectSegA.setOnClickListener(v -> applyTargetColor(0xFFA820FF)); // GT Purple (0x8A)
-        btnSelectSegB.setOnClickListener(v -> applyTargetColor(0xFFFDFFFB)); // Pure White (0x8B)
-        btnSelectSegC.setOnClickListener(v -> applyTargetColor(0xFFFF3B30)); // Racing Red (0x8C)
-        btnSelectSegD.setOnClickListener(v -> applyTargetColor(0xFF00E676)); // Matrix Green (0x8D)
-        btnSelectSegE.setOnClickListener(v -> applyTargetColor(0xFFFF9500)); // Cyber Amber (0x81)
-        btnSelectSegF.setOnClickListener(v -> applyTargetColor(0xFFFF2D55)); // Cyber Pink (0x19)
-
-        colorWheelPicker.setOnColorChangeListener(new ColorWheelView.OnColorChangeListener() {
+        colorSliderPicker.setOnColorChangeListener(new ColorSliderView.OnColorChangeListener() {
             @Override
             public void onColorChanged(int color, boolean fromUser) {
-                updateColorDisplay(color);
-                if (glyphVectorView != null) {
-                    glyphVectorView.setLiveColor(color);
+                if (fromUser) {
+                    applyTargetColor(color);
                 }
-                saveTargetColor(color);
             }
 
             @Override
             public void onColorChangeStop(int color) {
-                if (glyphVectorView != null) {
-                    glyphVectorView.onColorPickFinished(color);
-                }
-                RealmeGlyphDriver.flashSegment(RealmeGlyphDriver.LED_ALL, color, 600);
+                applyTargetColor(color);
             }
         });
 
@@ -492,8 +469,8 @@ public class MainActivity extends Activity {
     }
 
     private void applyTargetColor(int color) {
-        if (colorWheelPicker != null) {
-            colorWheelPicker.setColor(color);
+        if (colorSliderPicker != null) {
+            colorSliderPicker.setColor(color);
         }
         updateColorDisplay(color);
         if (glyphVectorView != null) {
@@ -505,8 +482,8 @@ public class MainActivity extends Activity {
 
     private void syncColorTargetUI() {
         int color = getCurrentTargetColor();
-        if (colorWheelPicker != null) {
-            colorWheelPicker.setColor(color);
+        if (colorSliderPicker != null) {
+            colorSliderPicker.setColor(color);
         }
         updateColorDisplay(color);
         if (glyphVectorView != null) {

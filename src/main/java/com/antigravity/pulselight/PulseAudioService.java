@@ -488,6 +488,9 @@ public class PulseAudioService extends Service {
             mCaptureThread.interrupt();
             mCaptureThread = null;
         }
+        if (mAnalyzer != null) {
+            mAnalyzer.cancelCalibration();
+        }
         releaseAudioRecord();
         releaseVisualizer();
         mMediaProjection = null;

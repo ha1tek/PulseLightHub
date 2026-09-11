@@ -173,15 +173,7 @@ public class ModernSwitch extends View {
         trackPaint.setColor(trackColor);
         canvas.drawRoundRect(trackRect, radius, radius, trackPaint);
 
-        // 2. Draw Subtle Border when OFF
-        if (progress < 1.0f) {
-            int alpha = Math.round((1.0f - progress) * 255);
-            trackBorderPaint.setAlpha(alpha);
-            float inset = trackBorderPaint.getStrokeWidth() / 2f;
-            trackRect.inset(inset, inset);
-            canvas.drawRoundRect(trackRect, radius - inset, radius - inset, trackBorderPaint);
-            trackRect.inset(-inset, -inset);
-        }
+
 
         // 3. Thumb Geometry
         float padding = 3.0f * density;

@@ -185,6 +185,23 @@ public class AudioAnalyzer {
     private final float[] mCalibWideMax = new float[WIDE_BANDS_COUNT];
     private final float[] mCalibWideFluxSum = new float[WIDE_BANDS_COUNT];
 
+    // Статистические гистограммы для автокалибровки без GC аллокаций
+    private static final int CALIB_HIST_BINS = 32;
+    private static final float CALIB_MAG_BIN_STEP = 1.0f / CALIB_HIST_BINS;
+    private static final float CALIB_FLUX_MAX_RANGE = 0.50f;
+    private static final float CALIB_FLUX_BIN_STEP = CALIB_FLUX_MAX_RANGE / CALIB_HIST_BINS;
+
+    private final int[][] mCalibNarrowMagHist = new int[NARROW_BANDS_COUNT][CALIB_HIST_BINS];
+    private final int[][] mCalibNarrowFluxHist = new int[NARROW_BANDS_COUNT][CALIB_HIST_BINS];
+    private final int[][] mCalibWideMagHist = new int[WIDE_BANDS_COUNT][CALIB_HIST_BINS];
+    private final int[][] mCalibWideFluxHist = new int[WIDE_BANDS_COUNT][CALIB_HIST_BINS];
+    private final int[] mCalibRmsHist = new int[CALIB_HIST_BINS];
+
+    // Отслеживание темпа и интервалов ритма для расчета decay
+    private long mCalibLastBeatTime = 0;
+    private long mCalibIntervalSumMs = 0;
+    private int mCalibIntervalsCount = 0;
+
     // Settings
     private int mTriggerMode = MODE_CUSTOM_PATTERN;
     private int mStudioAnalysisMode = STUDIO_MODE_FAST;
@@ -791,6 +808,19 @@ public class AudioAnalyzer {
         mDiagramIntervalMs = Math.max(1, Math.min(1000, ms));
     }
 
+    private float getPercentileFromHist(int[] hist, int totalFrames, float percentile, float binStep) {
+        if (totalFrames <= 0) return 0.05f;
+        int targetCount = Math.max(1, (int) (totalFrames * percentile));
+        int accumulated = 0;
+        for (int i = 0; i < CALIB_HIST_BINS; i++) {
+            accumulated += hist[i];
+            if (accumulated >= targetCount) {
+                return (i + 0.5f) * binStep;
+            }
+        }
+        return (CALIB_HIST_BINS - 0.5f) * binStep;
+    }
+
     public void startAutoCalibration(CalibrationCallback callback) {
         startAutoCalibration(10000, true, true, true, true, true, callback);
     }
@@ -809,14 +839,24 @@ public class AudioAnalyzer {
         mCalibrationStartTime = System.currentTimeMillis();
         mCalibLastReportedSec = (int) Math.ceil(mCalibrationDurationMs / 1000.0) + 1;
         mCalibFramesCount = 0;
+        mCalibLastBeatTime = 0;
+        mCalibIntervalSumMs = 0;
+        mCalibIntervalsCount = 0;
+
         for (int i = 0; i < NARROW_BANDS_COUNT; i++) {
             mCalibNarrowMax[i] = 0f;
             mCalibNarrowFluxSum[i] = 0f;
+            java.util.Arrays.fill(mCalibNarrowMagHist[i], 0);
+            java.util.Arrays.fill(mCalibNarrowFluxHist[i], 0);
         }
         for (int i = 0; i < WIDE_BANDS_COUNT; i++) {
             mCalibWideMax[i] = 0f;
             mCalibWideFluxSum[i] = 0f;
+            java.util.Arrays.fill(mCalibWideMagHist[i], 0);
+            java.util.Arrays.fill(mCalibWideFluxHist[i], 0);
         }
+        java.util.Arrays.fill(mCalibRmsHist, 0);
+
         mIsCalibrating = true;
     }
 
@@ -836,143 +876,115 @@ public class AudioAnalyzer {
 
         int frames = Math.max(1, mCalibFramesCount);
 
-        // =========================================================================
-        // NARROW BANDS (4): SUB, KICK, SNARE, TREBLE
-        // =========================================================================
+        // 1. RMS статистика для тишины, динамики и чувствительности
+        float rmsP10 = getPercentileFromHist(mCalibRmsHist, frames, 0.10f, CALIB_MAG_BIN_STEP);
+        float rmsP90 = getPercentileFromHist(mCalibRmsHist, frames, 0.90f, CALIB_MAG_BIN_STEP);
+        float dynamicContrast = (rmsP90 - rmsP10) / Math.max(0.02f, rmsP90);
+
+        // 2. Калибровка общей чувствительности по динамическому диапазону:
+        // При высоком контрасте чувствительность выше, при плотной стене звука - ниже для исключения залипания
+        if (mCalibSensitivity) {
+            mSensitivity = Math.max(1.15f, Math.min(1.55f, 1.15f + dynamicContrast * 0.40f));
+        }
+
+        // 3. Надежный Silence Gate по 10-му перцентилю RMS с запасом над шумовой полкой
+        if (mCalibLoudnessGate && mEnableLoudnessGate) {
+            float calculatedGate = Math.max(rmsP10 * 1.30f + 0.006f, rmsP90 * 0.20f);
+            mLoudnessGateThreshold = Math.max(0.02f, Math.min(0.12f, calculatedGate));
+        }
+
+        // 4. Темпо-адаптивное время затухания decay по межбитовым интервалам баса
+        if (mCalibDecay) {
+            if (mCalibIntervalsCount >= 3) {
+                float avgInterval = (float) mCalibIntervalSumMs / mCalibIntervalsCount;
+                int calculatedDecay = Math.round(avgInterval * 0.22f);
+                mDecayMs = Math.max(48, Math.min(105, calculatedDecay));
+            } else {
+                mDecayMs = 75;
+            }
+        }
+
+        // 5. Узкие полосы: гейны по 90 перцентилю и пороги по дельте потока
+        float[] narrowP90 = new float[NARROW_BANDS_COUNT];
         for (int i = 0; i < NARROW_BANDS_COUNT; i++) {
+            narrowP90[i] = getPercentileFromHist(mCalibNarrowMagHist[i], frames, 0.90f, CALIB_MAG_BIN_STEP);
+
             if (mCalibGains) {
-                if (mCalibNarrowMax[i] > 0.02f) {
-                    float targetGain = 0.85f / mCalibNarrowMax[i];
-                    mNarrowGains[i] = Math.max(0.70f, Math.min(2.50f, targetGain));
+                if (narrowP90[i] >= 0.018f) {
+                    float targetGain = 0.55f / narrowP90[i];
+                    mNarrowGains[i] = Math.max(0.65f, Math.min(2.20f, targetGain));
                 } else {
-                    mNarrowGains[i] = 1.0f;
+                    mNarrowGains[i] = 1.0f; // тихая неактивная полоса не усиливает шум
                 }
             }
-            float avgFlux = mCalibNarrowFluxSum[i] / frames;
+
             if (mCalibThresholds && mEnableBandThreshold) {
-                // Musical responsive threshold: 5% - 18% (never suffocates beats)
-                mNarrowThresholds[i] = Math.max(0.05f, Math.min(0.18f, avgFlux * 1.15f));
+                float avgFlux = mCalibNarrowFluxSum[i] / frames;
+                float fluxP90 = getPercentileFromHist(mCalibNarrowFluxHist[i], frames, 0.90f, CALIB_FLUX_BIN_STEP);
+                float deltaFlux = Math.max(0.015f, fluxP90 - avgFlux);
+                mNarrowThresholds[i] = Math.max(0.06f, Math.min(0.30f, deltaFlux * 1.125f));
             }
         }
 
-        if (mCalibSensitivity) {
-            float totalFlux = 0f;
-            for (float f : mCalibNarrowFluxSum) totalFlux += f;
-            float avg = totalFlux / (frames * NARROW_BANDS_COUNT);
-            mSensitivity = Math.max(1.20f, Math.min(1.60f, 1.35f + (avg - 0.08f) * 1.2f));
-        }
-
-        if (mCalibLoudnessGate && mEnableLoudnessGate) {
-            mLoudnessGateThreshold = Math.max(0.05f, Math.min(0.20f, mCurrentRms * 1.25f));
-        }
-
-        if (mCalibDecay) {
-            mDecayMs = 75;
-        }
-
-        // Sub and Kick (Bands 0 & 1): Symmetrical foundation
-        float subMax = mCalibNarrowMax[0];
-        float kickMax = mCalibNarrowMax[1];
-        if (subMax >= kickMax) {
-            mNarrowPatterns[0] = PATTERN_ALL;        // Full aura on heavy sub
-            mNarrowPatterns[1] = PATTERN_TOP_BOTTOM; // Vertical duet on kick
+        // Аппаратная симметрия паттернов Realme GT 5:
+        // LED_A - верх, LED_B - право, LED_C - низ, LED_D - лево.
+        // Полоса 0 Sub 20-80 Гц: PATTERN_BOTTOM низ LED_C или PATTERN_ALL при сильном доминировании саба
+        if (narrowP90[0] < 0.015f) {
+            mNarrowPatterns[0] = PATTERN_OFF;
+        } else if (narrowP90[0] > narrowP90[1] * 1.25f) {
+            mNarrowPatterns[0] = PATTERN_ALL;
         } else {
-            mNarrowPatterns[1] = PATTERN_ALL;        // Full aura on kick
-            mNarrowPatterns[0] = PATTERN_TOP_BOTTOM; // Vertical duet on sub
+            mNarrowPatterns[0] = PATTERN_BOTTOM;
         }
-        if (subMax < 0.015f) mNarrowPatterns[0] = PATTERN_OFF;
-        if (kickMax < 0.015f) mNarrowPatterns[1] = PATTERN_OFF;
 
-        // Snare (Band 2): Horizontal symmetrical duet
-        if (mCalibNarrowMax[2] >= 0.015f) {
-            mNarrowPatterns[2] = PATTERN_LEFT_RIGHT;
+        // Полоса 1 Kick 80-200 Гц: PATTERN_TOP_BOTTOM вертикальный столб LED_A | LED_C
+        if (narrowP90[1] < 0.015f) {
+            mNarrowPatterns[1] = PATTERN_OFF;
         } else {
-            mNarrowPatterns[2] = PATTERN_OFF;
+            mNarrowPatterns[1] = PATTERN_TOP_BOTTOM;
         }
 
-        // Treble (Band 3): Top / Aura accent
-        if (mCalibNarrowMax[3] >= 0.015f) {
-            mNarrowPatterns[3] = PATTERN_TOP;
-        } else {
-            mNarrowPatterns[3] = PATTERN_OFF;
-        }
+        // Полоса 2 Snare 200-3500 Гц: PATTERN_LEFT_RIGHT горизонтальная стерео-ось LED_D | LED_B
+        mNarrowPatterns[2] = (narrowP90[2] >= 0.015f) ? PATTERN_LEFT_RIGHT : PATTERN_OFF;
 
-        // =========================================================================
-        // WIDE BANDS (12): 30Hz to 16kHz
-        // =========================================================================
+        // Полоса 3 Hi-Hat 3500-18000 Гц: PATTERN_TOP верхний купол LED_A
+        mNarrowPatterns[3] = (narrowP90[3] >= 0.015f) ? PATTERN_TOP : PATTERN_OFF;
+
+        // 6. Широкие полосы 12 полос: гейны, пороги и пространственное распределение
+        float[] wideP90 = new float[WIDE_BANDS_COUNT];
         for (int i = 0; i < WIDE_BANDS_COUNT; i++) {
+            wideP90[i] = getPercentileFromHist(mCalibWideMagHist[i], frames, 0.90f, CALIB_MAG_BIN_STEP);
+
             if (mCalibGains) {
-                if (mCalibWideMax[i] > 0.02f) {
-                    float targetGain = 0.85f / mCalibWideMax[i];
-                    mWideGains[i] = Math.max(0.70f, Math.min(2.50f, targetGain));
+                if (wideP90[i] >= 0.016f) {
+                    float targetGain = 0.52f / wideP90[i];
+                    mWideGains[i] = Math.max(0.65f, Math.min(2.30f, targetGain));
                 } else {
                     mWideGains[i] = 1.0f;
                 }
             }
-            float avgFlux = mCalibWideFluxSum[i] / frames;
+
             if (mCalibThresholds && mEnableBandThreshold) {
-                // Responsive threshold: 4% - 16%
-                mWideThresholds[i] = Math.max(0.04f, Math.min(0.16f, avgFlux * 1.10f));
+                float avgFlux = mCalibWideFluxSum[i] / frames;
+                float fluxP90 = getPercentileFromHist(mCalibWideFluxHist[i], frames, 0.90f, CALIB_FLUX_BIN_STEP);
+                float deltaFlux = Math.max(0.015f, fluxP90 - avgFlux);
+                mWideThresholds[i] = Math.max(0.05f, Math.min(0.28f, deltaFlux * 1.10f));
             }
         }
 
-        // Symmetrical Musical Distribution across 12 bands:
-        // Zone 1: Bass / Kick (Bands 0, 1, 2: 30Hz, 60Hz, 120Hz)
-        int bestBass = 0;
-        float maxBassFlux = 0f;
-        for (int i = 0; i <= 2; i++) {
-            float f = mCalibWideFluxSum[i] / frames;
-            if (f > maxBassFlux) {
-                maxBassFlux = f;
-                bestBass = i;
-            }
-        }
-        mWidePatterns[0] = PATTERN_BOTTOM;
-        mWidePatterns[1] = PATTERN_TOP_BOTTOM;
-        mWidePatterns[2] = PATTERN_BOTTOM;
-        mWidePatterns[bestBass] = PATTERN_ALL; // Dominant bass gets full halo
-
-        // Zone 2: Mid / Snare / Clap (Bands 3, 4, 5, 6: 250Hz, 500Hz, 1kHz, 2kHz)
-        int bestMid = 3;
-        float maxMidFlux = 0f;
-        for (int i = 3; i <= 6; i++) {
-            float f = mCalibWideFluxSum[i] / frames;
-            if (f > maxMidFlux) {
-                maxMidFlux = f;
-                bestMid = i;
-            }
-        }
-        mWidePatterns[3] = PATTERN_LEFT_RIGHT;
-        mWidePatterns[4] = PATTERN_TOP_LEFT;
-        mWidePatterns[5] = PATTERN_BOTTOM_RIGHT;
-        mWidePatterns[6] = PATTERN_LEFT_RIGHT;
-        mWidePatterns[bestMid] = PATTERN_LEFT_RIGHT; // Dominant mid gets crisp horizontal duet
-
-        // Zone 3: Presence / High Percussion / Hats (Bands 7, 8, 9: 4kHz, 6kHz, 9kHz)
-        int bestHigh = 7;
-        float maxHighFlux = 0f;
-        for (int i = 7; i <= 9; i++) {
-            float f = mCalibWideFluxSum[i] / frames;
-            if (f > maxHighFlux) {
-                maxHighFlux = f;
-                bestHigh = i;
-            }
-        }
-        mWidePatterns[7] = PATTERN_TOP_RIGHT;
-        mWidePatterns[8] = PATTERN_TOP_LEFT;
-        mWidePatterns[9] = PATTERN_TOP;
-        mWidePatterns[bestHigh] = PATTERN_TOP_BOTTOM;
-
-        // Zone 4: Cymbals / Air (Bands 10, 11: 12kHz, 16kHz)
-        mWidePatterns[10] = PATTERN_TOP_BOTTOM;
-        mWidePatterns[11] = PATTERN_ALL;
-
-        // Turn OFF only dead silent bands (< 0.015f peak)
-        for (int i = 0; i < WIDE_BANDS_COUNT; i++) {
-            if (mCalibWideMax[i] < 0.015f) {
-                mWidePatterns[i] = PATTERN_OFF;
-            }
-        }
+        // Музыкально-геометрическое распределение 12 полос по зонам
+        mWidePatterns[0] = (wideP90[0] >= 0.015f) ? PATTERN_BOTTOM : PATTERN_OFF;
+        mWidePatterns[1] = (wideP90[1] >= 0.015f) ? PATTERN_BOTTOM : PATTERN_OFF;
+        mWidePatterns[2] = (wideP90[2] >= 0.015f) ? PATTERN_TOP_BOTTOM : PATTERN_OFF;
+        mWidePatterns[3] = (wideP90[3] >= 0.015f) ? PATTERN_BOTTOM_LEFT : PATTERN_OFF;
+        mWidePatterns[4] = (wideP90[4] >= 0.015f) ? PATTERN_BOTTOM_RIGHT : PATTERN_OFF;
+        mWidePatterns[5] = (wideP90[5] >= 0.015f) ? PATTERN_LEFT_RIGHT : PATTERN_OFF;
+        mWidePatterns[6] = (wideP90[6] >= 0.015f) ? PATTERN_LEFT_RIGHT : PATTERN_OFF;
+        mWidePatterns[7] = (wideP90[7] >= 0.015f) ? PATTERN_TOP_LEFT : PATTERN_OFF;
+        mWidePatterns[8] = (wideP90[8] >= 0.015f) ? PATTERN_TOP_RIGHT : PATTERN_OFF;
+        mWidePatterns[9] = (wideP90[9] >= 0.015f) ? PATTERN_TOP : PATTERN_OFF;
+        mWidePatterns[10] = (wideP90[10] >= 0.015f) ? PATTERN_TOP : PATTERN_OFF;
+        mWidePatterns[11] = (wideP90[11] >= 0.015f) ? PATTERN_ALL : PATTERN_OFF;
 
         if (mContext != null) {
             saveSettings(mContext);
@@ -1567,12 +1579,41 @@ public class AudioAnalyzer {
         if (mIsCalibrating) {
             mCalibFramesCount++;
             for (int i = 0; i < NARROW_BANDS_COUNT; i++) {
-                if (mNarrowBands[i] > mCalibNarrowMax[i]) mCalibNarrowMax[i] = mNarrowBands[i];
+                float val = mNarrowBands[i];
+                if (val > mCalibNarrowMax[i]) mCalibNarrowMax[i] = val;
                 mCalibNarrowFluxSum[i] += mNarrowFlux[i];
+
+                int magBin = Math.max(0, Math.min(CALIB_HIST_BINS - 1, (int) (val / CALIB_MAG_BIN_STEP)));
+                mCalibNarrowMagHist[i][magBin]++;
+
+                int fluxBin = Math.max(0, Math.min(CALIB_HIST_BINS - 1, (int) (mNarrowFlux[i] / CALIB_FLUX_BIN_STEP)));
+                mCalibNarrowFluxHist[i][fluxBin]++;
             }
             for (int i = 0; i < WIDE_BANDS_COUNT; i++) {
-                if (mWideBands[i] > mCalibWideMax[i]) mCalibWideMax[i] = mWideBands[i];
+                float val = mWideBands[i];
+                if (val > mCalibWideMax[i]) mCalibWideMax[i] = val;
                 mCalibWideFluxSum[i] += mWideFlux[i];
+
+                int magBin = Math.max(0, Math.min(CALIB_HIST_BINS - 1, (int) (val / CALIB_MAG_BIN_STEP)));
+                mCalibWideMagHist[i][magBin]++;
+
+                int fluxBin = Math.max(0, Math.min(CALIB_HIST_BINS - 1, (int) (mWideFlux[i] / CALIB_FLUX_BIN_STEP)));
+                mCalibWideFluxHist[i][fluxBin]++;
+            }
+
+            int rmsBin = Math.max(0, Math.min(CALIB_HIST_BINS - 1, (int) (mCurrentRms / CALIB_MAG_BIN_STEP)));
+            mCalibRmsHist[rmsBin]++;
+
+            // Отслеживание ритмических интервалов между басовыми ударами для адаптивного Decay
+            if (narrowHit[0] || narrowHit[1]) {
+                if (mCalibLastBeatTime > 0) {
+                    long dt = now - mCalibLastBeatTime;
+                    if (dt >= 120 && dt <= 1200) {
+                        mCalibIntervalSumMs += dt;
+                        mCalibIntervalsCount++;
+                    }
+                }
+                mCalibLastBeatTime = now;
             }
 
             long elapsed = now - mCalibrationStartTime;

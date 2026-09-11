@@ -343,11 +343,6 @@ public class ColorSliderView extends View {
         canvas.drawRoundRect(mSegRect, baseCorner, baseCorner, mSegmentPaint);
         mSegmentPaint.setShader(null);
 
-        // Subtle resting border
-        mBorderPaint.setColor(Color.argb((int) (40 * (1.0f - f)), 255, 255, 255));
-        mBorderPaint.setStrokeWidth(1.2f * density);
-        canvas.drawRoundRect(mSegRect, baseCorner, baseCorner, mBorderPaint);
-
         // Crisp white elevated highlight on active popped tile
         if (f > 0.05f) {
             mHighlightPaint.setAlpha((int) (255 * f));

@@ -179,6 +179,10 @@ public class MainActivity extends Activity {
         checkPermission();
         updateStatsAndPresets();
 
+        // Ensure engine is OFF on app launch - user must turn it ON manually
+        AudioAnalyzer.setEngineEnabled(this, false);
+        PulseAudioService.stopEngine(this);
+
         // Start on Tab 0 (Players)
         selectTab(0);
 
@@ -585,6 +589,7 @@ public class MainActivity extends Activity {
     // PAGE 2: GLYPH STUDIO (Direct Settings.Global + Always-On Aura)
     // =========================================================================
     private void setupStudioPage() {
+        setupAudioEngineSwitch();
         glyphVectorView = findViewById(R.id.glyph_vector_view);
         colorSliderPicker = findViewById(R.id.color_slider_view);
         btnTurnOff = findViewById(R.id.btn_turn_off_hal);
@@ -1671,31 +1676,8 @@ public class MainActivity extends Activity {
         }
     }
 
-    // =========================================================================
-    // PAGE 3: AUDIO ENGINE (Local Music Tracking & Beat Detection)
-    // =========================================================================
-    private void setupEnginePage() {
+    private void setupAudioEngineSwitch() {
         switchAudioEngine = findViewById(R.id.switch_audio_engine);
-        tvEngineStatusDesc = findViewById(R.id.tv_engine_status_desc);
-        engineSpectrumVisualizer = findViewById(R.id.engine_spectrum_visualizer);
-        if (engineSpectrumVisualizer != null && mAudioAnalyzer != null) {
-            engineSpectrumVisualizer.setSpectrumMode(mAudioAnalyzer.getSpectrumMode());
-            engineSpectrumVisualizer.setBarColor(GlyphColorManager.getUnifiedColor(this));
-        }
-
-        paletteBgColor = findViewById(R.id.palette_bg_color);
-        paletteAccentColor = findViewById(R.id.palette_accent_color);
-        setupThemeControls();
-
-        tvSensitivityValue = findViewById(R.id.tv_sensitivity_value);
-        seekSensitivity = findViewById(R.id.seek_sensitivity);
-        tvDecayValue = findViewById(R.id.tv_decay_value);
-        seekDecay = findViewById(R.id.seek_decay);
-
-        tvDaemonStatus = findViewById(R.id.tv_daemon_status);
-        btnReconnectDaemon = findViewById(R.id.btn_reconnect_daemon);
-
-        // Switch Audio Engine
         if (switchAudioEngine != null) {
             switchAudioEngine.setOnCheckedChangeListener((view, isChecked) -> {
                 if (mIsUpdatingEngineUI) return;
@@ -1732,13 +1714,40 @@ public class MainActivity extends Activity {
                         tvEngineStatusDesc.setText("Аудио-движок выключен");
                         tvEngineStatusDesc.setTextColor(getColor(R.color.text_muted));
                     }
-                    if (engineSpectrumVisualizer != null) {
+                    if (engineSpectrumVisualizer != null && mAudioAnalyzer != null) {
                         engineSpectrumVisualizer.updateData(mAudioAnalyzer.getEmptyResult());
                     }
+                    if (studioSpectrumVisualizer != null && mAudioAnalyzer != null) {
+                        studioSpectrumVisualizer.updateData(mAudioAnalyzer.getEmptyResult());
+                    }
+                    RealmeGlyphDriver.turnOff();
                     Toast.makeText(this, "Аудио-движок остановлен", Toast.LENGTH_SHORT).show();
                 }
             });
         }
+    }
+
+    // =========================================================================
+    // PAGE 3: AUDIO ENGINE (Local Music Tracking & Beat Detection)
+    // =========================================================================
+    private void setupEnginePage() {
+        engineSpectrumVisualizer = findViewById(R.id.engine_spectrum_visualizer);
+        if (engineSpectrumVisualizer != null && mAudioAnalyzer != null) {
+            engineSpectrumVisualizer.setSpectrumMode(mAudioAnalyzer.getSpectrumMode());
+            engineSpectrumVisualizer.setBarColor(GlyphColorManager.getUnifiedColor(this));
+        }
+
+        paletteBgColor = findViewById(R.id.palette_bg_color);
+        paletteAccentColor = findViewById(R.id.palette_accent_color);
+        setupThemeControls();
+
+        tvSensitivityValue = findViewById(R.id.tv_sensitivity_value);
+        seekSensitivity = findViewById(R.id.seek_sensitivity);
+        tvDecayValue = findViewById(R.id.tv_decay_value);
+        seekDecay = findViewById(R.id.seek_decay);
+
+        tvDaemonStatus = findViewById(R.id.tv_daemon_status);
+        btnReconnectDaemon = findViewById(R.id.btn_reconnect_daemon);
 
         // Sliders
         if (seekSensitivity != null) {

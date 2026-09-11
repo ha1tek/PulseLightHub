@@ -193,6 +193,35 @@
                 android:paddingTop="4dp"
                 android:paddingBottom="24dp">
 
+                <!-- Local Audio Engine Switch Card -->
+                <LinearLayout
+                    android:tag="themed_card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="10dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="@drawable/bg_card_dark"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:paddingTop="12dp"
+                    android:paddingBottom="12dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Локальный аудио-движок"
+                        android:textColor="@color/text_white"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+
+                    <com.antigravity.pulselight.ModernSwitch
+                        android:id="@+id/switch_audio_engine"
+                        android:layout_width="52dp"
+                        android:layout_height="32dp" />
+                </LinearLayout>
+
                 <!-- 1:1 Awakening Halo Landscape Replica -->
                 <com.antigravity.pulselight.RealmeGlyphView
                     android:id="@+id/glyph_vector_view"
@@ -1978,70 +2007,12 @@
                 android:paddingTop="6dp"
                 android:paddingBottom="24dp">
 
-                <!-- Hero Switch Card -->
-                <LinearLayout
-                    android:tag="themed_card"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:background="@drawable/bg_card_dark"
-                    android:padding="16dp">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical">
-
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:id="@+id/tag_engine"
-                                android:tag="accent_tag"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="ЛОКАЛЬНЫЙ АУДИО-ДВИЖОК"
-                                android:textColor="@color/volt_lime"
-                                android:textSize="11sp"
-                                android:letterSpacing="0.08"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="2dp"
-                                android:text="Системный звук и анимация"
-                                android:textColor="@color/text_white"
-                                android:textSize="18sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:id="@+id/tv_engine_status_desc"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="4dp"
-                                android:text="Аудио-движок выключен • Нажмите для активации"
-                                android:textColor="@color/text_muted"
-                                android:textSize="12sp" />
-                        </LinearLayout>
-
-                        <com.antigravity.pulselight.ModernSwitch
-                            android:id="@+id/switch_audio_engine"
-                            android:layout_width="52dp"
-                            android:layout_height="32dp" />
-                    </LinearLayout>
-                </LinearLayout>
-
                 <!-- Live Spectrum Visualizer Card (Mirrored from Studio) -->
                 <LinearLayout
                     android:tag="themed_card"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
+                    android:layout_marginTop="0dp"
                     android:orientation="vertical"
                     android:background="@drawable/bg_card_dark"
                     android:padding="16dp">

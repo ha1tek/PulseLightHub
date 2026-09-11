@@ -15,6 +15,8 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.LayerDrawable;
+import android.animation.ArgbEvaluator;
+import android.animation.ValueAnimator;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -26,6 +28,7 @@ import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
@@ -56,6 +59,7 @@ public class MainActivity extends Activity {
     private View layoutTopHeader;
     private View layoutNavBar;
     private View navTabsLayout;
+    private View navTabIndicator;
     private View pageStudioInner;
     private View pageEngineInner;
     private boolean mFilterOnlyActive = false;
@@ -248,6 +252,15 @@ public class MainActivity extends Activity {
         layoutTopHeader = findViewById(R.id.layout_top_header);
         layoutNavBar = findViewById(R.id.layout_nav_bar);
         navTabsLayout = findViewById(R.id.nav_tabs_layout);
+        navTabIndicator = findViewById(R.id.nav_tab_indicator);
+
+        if (navTabsLayout != null) {
+            navTabsLayout.addOnLayoutChangeListener((v, left, top, right, bottom, oldL, oldT, oldR, oldB) -> {
+                if (right - left != oldR - oldL) {
+                    animateTabSwitch(mCurrentTab, mCurrentTab, false);
+                }
+            });
+        }
 
         tvPermStatus = findViewById(R.id.tv_perm_status);
 
@@ -351,20 +364,71 @@ public class MainActivity extends Activity {
             }
         }
 
-        updateTabButton(navTabApps, index == 0);
-        updateTabButton(navTabStudio, index == 1);
-        updateTabButton(navTabEngine, index == 2);
+        animateTabSwitch(oldIndex, index, oldIndex != index);
     }
 
-    private void updateTabButton(TextView btn, boolean isSelected) {
-        if (btn == null) return;
-        if (isSelected) {
-            int accent = ThemeManager.getAccentColor(this);
-            btn.setBackground(ThemeManager.createPillDrawable(accent, 999, this));
-            btn.setTextColor(ThemeManager.getContrastTextColor(accent));
+    private void animateTabSwitch(int oldIndex, int newIndex, boolean animate) {
+        if (navTabsLayout == null || navTabIndicator == null) return;
+
+        int accent = ThemeManager.getAccentColor(this);
+        int activeTextColor = ThemeManager.getContrastTextColor(accent);
+        int inactiveTextColor = getColor(R.color.text_secondary);
+
+        navTabIndicator.setBackground(ThemeManager.createPillDrawable(accent, 999, this));
+
+        int usableWidth = navTabsLayout.getWidth() - navTabsLayout.getPaddingLeft() - navTabsLayout.getPaddingRight();
+        if (usableWidth <= 0) {
+            navTabsLayout.post(() -> animateTabSwitch(oldIndex, newIndex, false));
+            return;
+        }
+
+        int tabWidth = usableWidth / 3;
+        ViewGroup.LayoutParams lp = navTabIndicator.getLayoutParams();
+        if (lp.width != tabWidth) {
+            lp.width = tabWidth;
+            navTabIndicator.setLayoutParams(lp);
+        }
+
+        float targetX = navTabsLayout.getPaddingLeft() + newIndex * tabWidth;
+
+        TextView[] tabs = new TextView[]{navTabApps, navTabStudio, navTabEngine};
+        if (animate) {
+            navTabIndicator.animate()
+                    .translationX(targetX)
+                    .setDuration(220)
+                    .setInterpolator(new DecelerateInterpolator(1.8f))
+                    .start();
+
+            for (int i = 0; i < tabs.length; i++) {
+                TextView tab = tabs[i];
+                if (tab == null) continue;
+                boolean isSelected = (i == newIndex);
+                int fromColor = tab.getCurrentTextColor();
+                int toColor = isSelected ? activeTextColor : inactiveTextColor;
+
+                if (isSelected) {
+                    tab.setScaleX(0.92f);
+                    tab.setScaleY(0.92f);
+                    tab.animate()
+                            .scaleX(1.0f)
+                            .scaleY(1.0f)
+                            .setDuration(220)
+                            .setInterpolator(new DecelerateInterpolator(1.8f))
+                            .start();
+                }
+
+                ValueAnimator colorAnim = ValueAnimator.ofObject(new ArgbEvaluator(), fromColor, toColor);
+                colorAnim.setDuration(200);
+                colorAnim.addUpdateListener(anim -> tab.setTextColor((int) anim.getAnimatedValue()));
+                colorAnim.start();
+            }
         } else {
-            btn.setBackground(null);
-            btn.setTextColor(getColor(R.color.text_secondary));
+            navTabIndicator.setTranslationX(targetX);
+            for (int i = 0; i < tabs.length; i++) {
+                if (tabs[i] != null) {
+                    tabs[i].setTextColor(i == newIndex ? activeTextColor : inactiveTextColor);
+                }
+            }
         }
     }
 
@@ -1889,9 +1953,7 @@ public class MainActivity extends Activity {
         }
 
         // 4. Accent elements:
-        updateTabButton(navTabApps, mCurrentTab == 0);
-        updateTabButton(navTabStudio, mCurrentTab == 1);
-        updateTabButton(navTabEngine, mCurrentTab == 2);
+        animateTabSwitch(mCurrentTab, mCurrentTab, false);
 
         updateFilterTabsUI();
 
@@ -2303,6 +2365,11 @@ public class MainActivity extends Activity {
 
     private void startCalibrationProcess(int durationMs, boolean calibGains, boolean calibThresholds,
                                          boolean calibSens, boolean calibLoudness, boolean calibDecay) {
+        if (!PulseAudioService.isRunning()) {
+            Toast.makeText(this, "Включите аудио-движок и воспроизведение музыки", Toast.LENGTH_LONG).show();
+            return;
+        }
+
         if (btnAutoCalibrate != null) {
             btnAutoCalibrate.setEnabled(false);
             btnAutoCalibrate.setText("Калибровка...");
@@ -2326,19 +2393,17 @@ public class MainActivity extends Activity {
                     }
                     updateStudioSpectrumUI();
                     updateBandGainControls();
+                    updateBandPatternButtonsUI();
                     updateEngineControls();
                     if (btnAutoCalibrate != null) {
                         btnAutoCalibrate.setEnabled(true);
                         btnAutoCalibrate.setText("Автокалибровка");
                     }
-                    Toast.makeText(MainActivity.this, "Автокалибровка завершена", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MainActivity.this, "Автокалибровка успешно завершена", Toast.LENGTH_SHORT).show();
                 });
             }
         };
 
-        if (mAudioAnalyzer != null) {
-            mAudioAnalyzer.startAutoCalibration(durationMs, calibGains, calibThresholds, calibSens, calibLoudness, calibDecay, cb);
-        }
         PulseAudioService.startAutoCalibration(durationMs, calibGains, calibThresholds, calibSens, calibLoudness, calibDecay, cb);
     }
 
@@ -2377,7 +2442,7 @@ public class MainActivity extends Activity {
         input.setHint("Название пресета");
         input.setTextColor(getColor(R.color.text_white));
         input.setHintTextColor(getColor(R.color.text_muted));
-        input.setBackgroundResource(R.drawable.bg_search_pill);
+        input.setBackgroundResource(R.drawable.bg_dialog_input);
         int pad = (int) (12 * getResources().getDisplayMetrics().density);
         input.setPadding(pad, pad, pad, pad);
 
@@ -2466,7 +2531,7 @@ public class MainActivity extends Activity {
         et.setMinLines(4);
         et.setMaxLines(10);
         et.setGravity(Gravity.TOP | Gravity.START);
-        et.setBackgroundResource(R.drawable.bg_search_pill);
+        et.setBackgroundResource(R.drawable.bg_dialog_input);
         int pad = (int) (12 * getResources().getDisplayMetrics().density);
         et.setPadding(pad, pad, pad, pad);
 
@@ -2557,6 +2622,20 @@ public class MainActivity extends Activity {
 
         if (switchEngineBandThreshold != null) {
             switchEngineBandThreshold.setChecked(mAudioAnalyzer.isEnableBandThreshold());
+        }
+
+        if (seekLoudnessGate != null) {
+            float lg = mAudioAnalyzer.getLoudnessGateThreshold();
+            seekLoudnessGate.setProgress(Math.round(lg * 100.0f));
+            if (tvLoudnessGateVal != null) {
+                tvLoudnessGateVal.setText(Math.round(lg * 100.0f) + "%");
+            }
+        }
+        if (switchFilterLoudness != null) {
+            switchFilterLoudness.setChecked(mAudioAnalyzer.isEnableLoudnessGate());
+            if (containerLoudnessSlider != null) {
+                containerLoudnessSlider.setVisibility(mAudioAnalyzer.isEnableLoudnessGate() ? View.VISIBLE : View.GONE);
+            }
         }
     }
 

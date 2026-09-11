@@ -121,7 +121,6 @@ public class ThemeManager {
         float density = context != null ? context.getResources().getDisplayMetrics().density : 2.5f;
         gd.setCornerRadius(radiusDp * density);
         gd.setColor(cardBgColor);
-        gd.setStroke(Math.max(1, Math.round(1f * density)), strokeColor);
         return gd;
     }
 

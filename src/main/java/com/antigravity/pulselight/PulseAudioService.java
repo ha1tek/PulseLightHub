@@ -42,9 +42,11 @@ public class PulseAudioService extends Service {
 
     private static Intent sLastProjectionData = null;
     private static int sLastProjectionResultCode = Activity.RESULT_CANCELED;
+    private static MediaProjection sActiveMediaProjection = null;
 
     public static boolean hasProjectionData() {
-        return sLastProjectionResultCode == Activity.RESULT_OK && sLastProjectionData != null;
+        return (sLastProjectionResultCode == Activity.RESULT_OK && sLastProjectionData != null)
+                || sActiveMediaProjection != null;
     }
 
     private AudioAnalyzer mAnalyzer;
@@ -101,6 +103,12 @@ public class PulseAudioService extends Service {
         return (sInstance != null) ? sInstance.mAnalyzer : null;
     }
 
+    public static void reloadSettings(Context context) {
+        if (sInstance != null && sInstance.mAnalyzer != null && context != null) {
+            sInstance.mAnalyzer.loadSettings(context);
+        }
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -139,9 +147,6 @@ public class PulseAudioService extends Service {
     }
 
     public static void stopEngine(Context context) {
-        sLastProjectionData = null;
-        sLastProjectionResultCode = Activity.RESULT_CANCELED;
-
         Intent intent = new Intent(context, PulseAudioService.class);
         context.stopService(intent);
         AudioAnalyzer.setEngineEnabled(context, false);
@@ -155,20 +160,23 @@ public class PulseAudioService extends Service {
         int resultCode = intent != null ? intent.getIntExtra(EXTRA_RESULT_CODE, Activity.RESULT_CANCELED) : Activity.RESULT_CANCELED;
         Intent resultData = intent != null ? intent.getParcelableExtra(EXTRA_RESULT_DATA) : null;
 
-        if (resultCode == Activity.RESULT_OK && resultData != null) {
+        if (sActiveMediaProjection != null) {
+            mMediaProjection = sActiveMediaProjection;
+            Log.i(TAG, "Reusing existing active MediaProjection for engine restart");
+        } else if (resultCode == Activity.RESULT_OK && resultData != null) {
             MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
             if (mpm != null) {
                 try {
-                    if (mMediaProjection != null) {
-                        try { mMediaProjection.stop(); } catch (Throwable ignored) {}
-                        mMediaProjection = null;
-                    }
                     mMediaProjection = mpm.getMediaProjection(resultCode, resultData);
                     if (mMediaProjection != null) {
+                        sActiveMediaProjection = mMediaProjection;
                         mMediaProjection.registerCallback(new MediaProjection.Callback() {
                             @Override
                             public void onStop() {
                                 Log.i(TAG, "MediaProjection stopped by system");
+                                sActiveMediaProjection = null;
+                                sLastProjectionData = null;
+                                sLastProjectionResultCode = Activity.RESULT_CANCELED;
                                 stopEngine(PulseAudioService.this);
                             }
                         }, new Handler(Looper.getMainLooper()));
@@ -320,7 +328,7 @@ public class PulseAudioService extends Service {
                 mAudioRecord.startRecording();
                 Log.i(TAG, "AudioPlaybackCapture recording ACTIVE - capturing system sound without microphone!");
 
-                short[] pcmBuffer = new short[4096];
+                short[] pcmBuffer = new short[1024];
 
                 while (mIsRunning) {
                     int read = mAudioRecord.read(pcmBuffer, 0, pcmBuffer.length);
@@ -350,11 +358,8 @@ public class PulseAudioService extends Service {
                         continue;
                     }
 
-                    mAnalyzer.loadSettings(PulseAudioService.this);
                     AudioAnalyzer.AnalysisResult result = mAnalyzer.processPcm(pcmBuffer, read, sampleRate);
                     dispatchAnalysisResult(result);
-
-                    Thread.sleep(8);
                 }
             } else {
                 runVisualizerLoop();
@@ -414,7 +419,6 @@ public class PulseAudioService extends Service {
                     continue;
                 }
 
-                mAnalyzer.loadSettings(PulseAudioService.this);
                 AudioAnalyzer.AnalysisResult result = mAnalyzer.processFft(fftBuffer, samplingRate);
                 dispatchAnalysisResult(result);
 
@@ -451,7 +455,7 @@ public class PulseAudioService extends Service {
 
         OnAudioFrameListener listener = sFrameListener;
         if (listener != null) {
-            listener.onAudioFrame(result, currentColor);
+            listener.onAudioFrame(result.copy(), currentColor);
         }
     }
 
@@ -486,12 +490,7 @@ public class PulseAudioService extends Service {
         }
         releaseAudioRecord();
         releaseVisualizer();
-        if (mMediaProjection != null) {
-            try {
-                mMediaProjection.stop();
-            } catch (Throwable ignored) {}
-            mMediaProjection = null;
-        }
+        mMediaProjection = null;
         RealmeGlyphDriver.turnOff();
         sInstance = null;
         super.onDestroy();

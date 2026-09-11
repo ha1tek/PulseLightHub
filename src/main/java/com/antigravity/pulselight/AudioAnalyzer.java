@@ -217,13 +217,21 @@ public class AudioAnalyzer {
     private final float[] mHannWindow = new float[MAX_FFT_SIZE];
     private final float[] mTukeyWindow = new float[MAX_FFT_SIZE];
 
-    private static final float[] NARROW_WEIGHTS = { 1.0f, 1.15f, 1.50f, 2.40f };
+    private static final float[] NARROW_WEIGHTS = { 1.0f, 1.15f, 1.40f, 1.80f };
     private static final float[] WIDE_WEIGHTS = { 1.0f, 1.05f, 1.12f, 1.25f, 1.40f, 1.65f, 1.95f, 2.30f, 2.70f, 3.15f, 3.65f, 4.20f };
-    private float mNarrowVisualCeiling = 0.25f;
-    private float mWideVisualCeiling = 0.22f;
+    private final float[] mNarrowCeilings = { 0.25f, 0.22f, 0.18f, 0.12f };
+    private final float[] mWideCeilings = { 0.25f, 0.25f, 0.22f, 0.20f, 0.18f, 0.16f, 0.15f, 0.14f, 0.13f, 0.12f, 0.11f, 0.10f };
 
-    private static final float NOISE_FLOOR = 0.025f;
-    private static final long MIN_BEAT_INTERVAL_MS = 60;
+    private final float[] mPrevNarrowFlux = new float[NARROW_BANDS_COUNT];
+    private final float[] mPrevWideFlux = new float[WIDE_BANDS_COUNT];
+
+    private static final long[] NARROW_MIN_INTERVAL_MS = { 90, 80, 70, 35 };
+    private static final long[] WIDE_MIN_INTERVAL_MS = { 90, 90, 80, 80, 70, 70, 60, 60, 50, 50, 40, 35 };
+
+    private final float[] mNarrowSumSq = new float[NARROW_BANDS_COUNT];
+    private final int[] mNarrowCounts = new int[NARROW_BANDS_COUNT];
+    private final float[] mWideSumSq = new float[WIDE_BANDS_COUNT];
+    private final int[] mWideCounts = new int[WIDE_BANDS_COUNT];
 
     public static class AnalysisResult {
         public int activeLedMask = 0;
@@ -237,6 +245,22 @@ public class AudioAnalyzer {
         public float rmsLoudness = 0f;
         public float spectralCentroid = 0f;
         public int spectrumMode = SPECTRUM_MODE_NARROW;
+
+        public AnalysisResult copy() {
+            AnalysisResult res = new AnalysisResult();
+            res.activeLedMask = this.activeLedMask;
+            res.intensity = this.intensity;
+            res.isBeat = this.isBeat;
+            res.rmsLoudness = this.rmsLoudness;
+            res.spectralCentroid = this.spectralCentroid;
+            res.spectrumMode = this.spectrumMode;
+            System.arraycopy(this.bandLevels, 0, res.bandLevels, 0, NARROW_BANDS_COUNT);
+            System.arraycopy(this.wideLevels, 0, res.wideLevels, 0, WIDE_BANDS_COUNT);
+            System.arraycopy(this.wideCurve, 0, res.wideCurve, 0, WIDE_BANDS_COUNT);
+            System.arraycopy(this.narrowEnabled, 0, res.narrowEnabled, 0, NARROW_BANDS_COUNT);
+            System.arraycopy(this.wideEnabled, 0, res.wideEnabled, 0, WIDE_BANDS_COUNT);
+            return res;
+        }
     }
 
     private final AnalysisResult mResult = new AnalysisResult();
@@ -523,6 +547,7 @@ public class AudioAnalyzer {
             ed.putBoolean(KEY_WIDE_ENABLED_PREFIX + i, mWideEnabled[i]);
         }
         ed.apply();
+        PulseAudioService.reloadSettings(context);
     }
 
     public static boolean isEngineEnabled(Context context) {
@@ -1025,11 +1050,16 @@ public class AudioAnalyzer {
 
         computeRadix2Fft(mPcmReal, mPcmImag, targetFft);
 
-        for (int i = 0; i < NARROW_BANDS_COUNT; i++) mNarrowBands[i] = 0f;
-        for (int i = 0; i < WIDE_BANDS_COUNT; i++) mWideBands[i] = 0f;
-
-        int[] narrowCounts = new int[NARROW_BANDS_COUNT];
-        int[] wideCounts = new int[WIDE_BANDS_COUNT];
+        for (int i = 0; i < NARROW_BANDS_COUNT; i++) {
+            mNarrowBands[i] = 0f;
+            mNarrowSumSq[i] = 0f;
+            mNarrowCounts[i] = 0;
+        }
+        for (int i = 0; i < WIDE_BANDS_COUNT; i++) {
+            mWideBands[i] = 0f;
+            mWideSumSq[i] = 0f;
+            mWideCounts[i] = 0;
+        }
 
         float binWidth = (float) samplingRateHz / (float) targetFft;
         int halfN = targetFft / 2;
@@ -1046,51 +1076,94 @@ public class AudioAnalyzer {
             sumFreqMag += freq * mag;
             sumMag += mag;
 
-            // Narrow Bands (4) - Peak tracking
+            // Narrow Bands (4) - seamless 20 Hz to 18000 Hz coverage
             if (freq >= 20f && freq < 80f) {
+                mNarrowSumSq[0] += mag * mag;
+                mNarrowCounts[0]++;
                 if (mag > mNarrowBands[0]) mNarrowBands[0] = mag;
-            } else if (freq >= 80f && freq < 180f) {
+            } else if (freq >= 80f && freq < 200f) {
+                mNarrowSumSq[1] += mag * mag;
+                mNarrowCounts[1]++;
                 if (mag > mNarrowBands[1]) mNarrowBands[1] = mag;
-            } else if (freq >= 220f && freq < 900f) {
+            } else if (freq >= 200f && freq < 3500f) {
+                mNarrowSumSq[2] += mag * mag;
+                mNarrowCounts[2]++;
                 if (mag > mNarrowBands[2]) mNarrowBands[2] = mag;
-            } else if (freq >= 3500f && freq < 16000f) {
-                if (mag > mNarrowBands[3]) mNarrowBands[3] = mag;
+            } else if (freq >= 3500f && freq < 18000f) {
+                // aubio HFC weighting: linear frequency weight compensates 1/f falloff
+                float hfcWeight = 1.0f + (freq - 3500f) / 3600f;
+                float weightedMag = mag * hfcWeight;
+                mNarrowSumSq[3] += weightedMag * weightedMag;
+                mNarrowCounts[3]++;
+                if (weightedMag > mNarrowBands[3]) mNarrowBands[3] = weightedMag;
             }
 
-            // Wide Bands (12 semi-octave spaced) - Peak tracking
-            if (freq >= 20f && freq < 45f) {
+            // Wide Bands (12) - seamless 20 Hz to 20000 Hz coverage
+            if (freq >= 20f && freq < 60f) {
+                mWideSumSq[0] += mag * mag; mWideCounts[0]++;
                 if (mag > mWideBands[0]) mWideBands[0] = mag;
-            } else if (freq >= 45f && freq < 90f) {
+            } else if (freq >= 60f && freq < 120f) {
+                mWideSumSq[1] += mag * mag; mWideCounts[1]++;
                 if (mag > mWideBands[1]) mWideBands[1] = mag;
-            } else if (freq >= 90f && freq < 180f) {
+            } else if (freq >= 120f && freq < 250f) {
+                mWideSumSq[2] += mag * mag; mWideCounts[2]++;
                 if (mag > mWideBands[2]) mWideBands[2] = mag;
-            } else if (freq >= 180f && freq < 350f) {
+            } else if (freq >= 250f && freq < 500f) {
+                mWideSumSq[3] += mag * mag; mWideCounts[3]++;
                 if (mag > mWideBands[3]) mWideBands[3] = mag;
-            } else if (freq >= 350f && freq < 700f) {
+            } else if (freq >= 500f && freq < 1000f) {
+                mWideSumSq[4] += mag * mag; mWideCounts[4]++;
                 if (mag > mWideBands[4]) mWideBands[4] = mag;
-            } else if (freq >= 700f && freq < 1400f) {
+            } else if (freq >= 1000f && freq < 2000f) {
+                mWideSumSq[5] += mag * mag; mWideCounts[5]++;
                 if (mag > mWideBands[5]) mWideBands[5] = mag;
-            } else if (freq >= 1400f && freq < 2800f) {
+            } else if (freq >= 2000f && freq < 3500f) {
+                mWideSumSq[6] += mag * mag; mWideCounts[6]++;
                 if (mag > mWideBands[6]) mWideBands[6] = mag;
-            } else if (freq >= 2800f && freq < 4500f) {
+            } else if (freq >= 3500f && freq < 5500f) {
+                mWideSumSq[7] += mag * mag; mWideCounts[7]++;
                 if (mag > mWideBands[7]) mWideBands[7] = mag;
-            } else if (freq >= 4500f && freq < 7000f) {
+            } else if (freq >= 5500f && freq < 8000f) {
+                mWideSumSq[8] += mag * mag; mWideCounts[8]++;
                 if (mag > mWideBands[8]) mWideBands[8] = mag;
-            } else if (freq >= 7000f && freq < 10500f) {
+            } else if (freq >= 8000f && freq < 11000f) {
+                mWideSumSq[9] += mag * mag; mWideCounts[9]++;
                 if (mag > mWideBands[9]) mWideBands[9] = mag;
-            } else if (freq >= 10500f && freq < 14500f) {
+            } else if (freq >= 11000f && freq < 15000f) {
+                mWideSumSq[10] += mag * mag; mWideCounts[10]++;
                 if (mag > mWideBands[10]) mWideBands[10] = mag;
-            } else if (freq >= 14500f && freq < 20000f) {
+            } else if (freq >= 15000f && freq <= 20000f) {
+                mWideSumSq[11] += mag * mag; mWideCounts[11]++;
                 if (mag > mWideBands[11]) mWideBands[11] = mag;
             }
         }
 
         mCurrentCentroid = (sumMag > 0.001f) ? (sumFreqMag / sumMag) : 0f;
 
+        // Energy Integration: Combine peak and RMS power
         for (int i = 0; i < NARROW_BANDS_COUNT; i++) {
+            if (mNarrowCounts[i] > 0) {
+                float rms = (float) Math.sqrt(mNarrowSumSq[i] / mNarrowCounts[i]);
+                if (i >= 2) {
+                    // Snare & Hi-Hat: multi-bin transient punch
+                    mNarrowBands[i] = Math.max(mNarrowBands[i] * 0.45f, rms * 2.2f);
+                } else {
+                    // Sub & Kick
+                    mNarrowBands[i] = Math.max(mNarrowBands[i], rms * 1.5f);
+                }
+            }
             mNarrowBands[i] = mNarrowBands[i] * NARROW_WEIGHTS[i] * mNarrowGains[i];
         }
+
         for (int i = 0; i < WIDE_BANDS_COUNT; i++) {
+            if (mWideCounts[i] > 0) {
+                float rms = (float) Math.sqrt(mWideSumSq[i] / mWideCounts[i]);
+                if (i >= 5) {
+                    mWideBands[i] = Math.max(mWideBands[i] * 0.45f, rms * 2.2f);
+                } else {
+                    mWideBands[i] = Math.max(mWideBands[i], rms * 1.4f);
+                }
+            }
             mWideBands[i] = mWideBands[i] * WIDE_WEIGHTS[i] * mWideGains[i];
         }
 
@@ -1228,11 +1301,16 @@ public class AudioAnalyzer {
         int halfN = n / 2;
         float binWidth = (float) samplingRateHz / (float) n;
 
-        for (int i = 0; i < NARROW_BANDS_COUNT; i++) mNarrowBands[i] = 0f;
-        for (int i = 0; i < WIDE_BANDS_COUNT; i++) mWideBands[i] = 0f;
-
-        int[] narrowCounts = new int[NARROW_BANDS_COUNT];
-        int[] wideCounts = new int[WIDE_BANDS_COUNT];
+        for (int i = 0; i < NARROW_BANDS_COUNT; i++) {
+            mNarrowBands[i] = 0f;
+            mNarrowSumSq[i] = 0f;
+            mNarrowCounts[i] = 0;
+        }
+        for (int i = 0; i < WIDE_BANDS_COUNT; i++) {
+            mWideBands[i] = 0f;
+            mWideSumSq[i] = 0f;
+            mWideCounts[i] = 0;
+        }
 
         float sumFreqMag = 0f;
         float sumMag = 0f;
@@ -1246,50 +1324,94 @@ public class AudioAnalyzer {
             sumFreqMag += freq * mag;
             sumMag += mag;
 
+            // Narrow Bands (4) - seamless 20 Hz to 18000 Hz coverage
             if (freq >= 20f && freq < 80f) {
+                mNarrowSumSq[0] += mag * mag;
+                mNarrowCounts[0]++;
                 if (mag > mNarrowBands[0]) mNarrowBands[0] = mag;
-            } else if (freq >= 80f && freq < 180f) {
+            } else if (freq >= 80f && freq < 200f) {
+                mNarrowSumSq[1] += mag * mag;
+                mNarrowCounts[1]++;
                 if (mag > mNarrowBands[1]) mNarrowBands[1] = mag;
-            } else if (freq >= 220f && freq < 900f) {
+            } else if (freq >= 200f && freq < 3500f) {
+                mNarrowSumSq[2] += mag * mag;
+                mNarrowCounts[2]++;
                 if (mag > mNarrowBands[2]) mNarrowBands[2] = mag;
-            } else if (freq >= 3500f && freq < 16000f) {
-                if (mag > mNarrowBands[3]) mNarrowBands[3] = mag;
+            } else if (freq >= 3500f && freq < 18000f) {
+                // aubio HFC weighting: linear frequency weight compensates 1/f falloff
+                float hfcWeight = 1.0f + (freq - 3500f) / 3600f;
+                float weightedMag = mag * hfcWeight;
+                mNarrowSumSq[3] += weightedMag * weightedMag;
+                mNarrowCounts[3]++;
+                if (weightedMag > mNarrowBands[3]) mNarrowBands[3] = weightedMag;
             }
 
-            // Wide Bands (12 semi-octave spaced) - Peak tracking
-            if (freq >= 20f && freq < 45f) {
+            // Wide Bands (12) - seamless 20 Hz to 20000 Hz coverage
+            if (freq >= 20f && freq < 60f) {
+                mWideSumSq[0] += mag * mag; mWideCounts[0]++;
                 if (mag > mWideBands[0]) mWideBands[0] = mag;
-            } else if (freq >= 45f && freq < 90f) {
+            } else if (freq >= 60f && freq < 120f) {
+                mWideSumSq[1] += mag * mag; mWideCounts[1]++;
                 if (mag > mWideBands[1]) mWideBands[1] = mag;
-            } else if (freq >= 90f && freq < 180f) {
+            } else if (freq >= 120f && freq < 250f) {
+                mWideSumSq[2] += mag * mag; mWideCounts[2]++;
                 if (mag > mWideBands[2]) mWideBands[2] = mag;
-            } else if (freq >= 180f && freq < 350f) {
+            } else if (freq >= 250f && freq < 500f) {
+                mWideSumSq[3] += mag * mag; mWideCounts[3]++;
                 if (mag > mWideBands[3]) mWideBands[3] = mag;
-            } else if (freq >= 350f && freq < 700f) {
+            } else if (freq >= 500f && freq < 1000f) {
+                mWideSumSq[4] += mag * mag; mWideCounts[4]++;
                 if (mag > mWideBands[4]) mWideBands[4] = mag;
-            } else if (freq >= 700f && freq < 1400f) {
+            } else if (freq >= 1000f && freq < 2000f) {
+                mWideSumSq[5] += mag * mag; mWideCounts[5]++;
                 if (mag > mWideBands[5]) mWideBands[5] = mag;
-            } else if (freq >= 1400f && freq < 2800f) {
+            } else if (freq >= 2000f && freq < 3500f) {
+                mWideSumSq[6] += mag * mag; mWideCounts[6]++;
                 if (mag > mWideBands[6]) mWideBands[6] = mag;
-            } else if (freq >= 2800f && freq < 4500f) {
+            } else if (freq >= 3500f && freq < 5500f) {
+                mWideSumSq[7] += mag * mag; mWideCounts[7]++;
                 if (mag > mWideBands[7]) mWideBands[7] = mag;
-            } else if (freq >= 4500f && freq < 7000f) {
+            } else if (freq >= 5500f && freq < 8000f) {
+                mWideSumSq[8] += mag * mag; mWideCounts[8]++;
                 if (mag > mWideBands[8]) mWideBands[8] = mag;
-            } else if (freq >= 7000f && freq < 10500f) {
+            } else if (freq >= 8000f && freq < 11000f) {
+                mWideSumSq[9] += mag * mag; mWideCounts[9]++;
                 if (mag > mWideBands[9]) mWideBands[9] = mag;
-            } else if (freq >= 10500f && freq < 14500f) {
+            } else if (freq >= 11000f && freq < 15000f) {
+                mWideSumSq[10] += mag * mag; mWideCounts[10]++;
                 if (mag > mWideBands[10]) mWideBands[10] = mag;
-            } else if (freq >= 14500f && freq < 20000f) {
+            } else if (freq >= 15000f && freq <= 20000f) {
+                mWideSumSq[11] += mag * mag; mWideCounts[11]++;
                 if (mag > mWideBands[11]) mWideBands[11] = mag;
             }
         }
 
         mCurrentCentroid = (sumMag > 0.001f) ? (sumFreqMag / sumMag) : 0f;
 
+        // Energy Integration: Combine peak and RMS power
         for (int i = 0; i < NARROW_BANDS_COUNT; i++) {
+            if (mNarrowCounts[i] > 0) {
+                float rms = (float) Math.sqrt(mNarrowSumSq[i] / mNarrowCounts[i]);
+                if (i >= 2) {
+                    // Snare & Hi-Hat: multi-bin transient punch
+                    mNarrowBands[i] = Math.max(mNarrowBands[i] * 0.45f, rms * 2.2f);
+                } else {
+                    // Sub & Kick
+                    mNarrowBands[i] = Math.max(mNarrowBands[i], rms * 1.5f);
+                }
+            }
             mNarrowBands[i] = mNarrowBands[i] * NARROW_WEIGHTS[i] * mNarrowGains[i];
         }
+
         for (int i = 0; i < WIDE_BANDS_COUNT; i++) {
+            if (mWideCounts[i] > 0) {
+                float rms = (float) Math.sqrt(mWideSumSq[i] / mWideCounts[i]);
+                if (i >= 5) {
+                    mWideBands[i] = Math.max(mWideBands[i] * 0.45f, rms * 2.2f);
+                } else {
+                    mWideBands[i] = Math.max(mWideBands[i], rms * 1.4f);
+                }
+            }
             mWideBands[i] = mWideBands[i] * WIDE_WEIGHTS[i] * mWideGains[i];
         }
 
@@ -1344,32 +1466,20 @@ public class AudioAnalyzer {
         mResult.rmsLoudness = mCurrentRms;
         mResult.spectralCentroid = mCurrentCentroid;
 
-        // 1. Adaptive Ceiling Tracking & High-Contrast Normalization
-        // Prevents all columns from hitting 100% ceiling and makes the dominant band clearly stand out!
-        float maxNarrow = 0f;
+        // 1. Per-Band Adaptive Ceiling Tracking & Contrast Normalization
+        // Gives each band its own dynamic headroom so snare and hi-hats remain lively
         for (int i = 0; i < NARROW_BANDS_COUNT; i++) {
-            if (mNarrowBands[i] > maxNarrow) maxNarrow = mNarrowBands[i];
-        }
-        mNarrowVisualCeiling = Math.max(0.18f, Math.max(mNarrowVisualCeiling * 0.982f, maxNarrow * 1.08f));
-
-        for (int i = 0; i < NARROW_BANDS_COUNT; i++) {
-            float ratio = (mNarrowBands[i] / mNarrowVisualCeiling) * mSpectrumVisualGain;
-            // Power curve 1.28 expands contrast with high responsiveness
-            float lvl = (float) Math.pow(Math.max(0.0f, Math.min(1.0f, ratio)), 1.28f);
+            mNarrowCeilings[i] = Math.max(0.08f, Math.max(mNarrowCeilings[i] * 0.985f, mNarrowBands[i] * 1.10f));
+            float ratio = (mNarrowBands[i] / mNarrowCeilings[i]) * mSpectrumVisualGain;
+            float lvl = (float) Math.pow(Math.max(0.0f, Math.min(1.0f, ratio)), 1.25f);
             mResult.bandLevels[i] = lvl;
         }
 
-        float maxWide = 0f;
         for (int i = 0; i < WIDE_BANDS_COUNT; i++) {
-            if (mWideBands[i] > maxWide) maxWide = mWideBands[i];
-        }
-        mWideVisualCeiling = Math.max(0.16f, Math.max(mWideVisualCeiling * 0.982f, maxWide * 1.08f));
-
-        for (int i = 0; i < WIDE_BANDS_COUNT; i++) {
-            float ratio = (mWideBands[i] / mWideVisualCeiling) * mSpectrumVisualGain;
-            float lvl = (float) Math.pow(Math.max(0.0f, Math.min(1.0f, ratio)), 1.28f);
+            mWideCeilings[i] = Math.max(0.06f, Math.max(mWideCeilings[i] * 0.985f, mWideBands[i] * 1.10f));
+            float ratio = (mWideBands[i] / mWideCeilings[i]) * mSpectrumVisualGain;
+            float lvl = (float) Math.pow(Math.max(0.0f, Math.min(1.0f, ratio)), 1.25f);
             mResult.wideLevels[i] = lvl;
-            // Smooth curve points
             mWideCurvePoints[i] = 0.60f * mWideCurvePoints[i] + 0.40f * lvl;
             mResult.wideCurve[i] = mWideCurvePoints[i];
         }
@@ -1379,7 +1489,7 @@ public class AudioAnalyzer {
 
         long now = System.currentTimeMillis();
 
-        // 2. Compute Onset (Spectral Flux) for Narrow Bands
+        // 2. Compute Onset (Half-wave Spectral Flux + aubio Peak Picking) for Narrow Bands
         boolean[] narrowHit = new boolean[NARROW_BANDS_COUNT];
         float alpha = 0.88f;
 
@@ -1388,10 +1498,18 @@ public class AudioAnalyzer {
             mNarrowFlux[i] = Math.max(0f, diff);
             mPrevNarrowBands[i] = mNarrowBands[i];
             mNarrowAvg[i] = alpha * mNarrowAvg[i] + (1.0f - alpha) * mNarrowFlux[i];
-            float threshold = mEnableBandThreshold ? Math.max(mNarrowThresholds[i], mNarrowAvg[i] * mSensitivity) : (mNarrowAvg[i] * mSensitivity);
-            boolean levelOk = !mEnableBandThreshold || (mNarrowBands[i] >= mNarrowThresholds[i] * 0.75f);
 
-            if (mNarrowFlux[i] > threshold && levelOk && (now - mLastNarrowBeatTime[i] > MIN_BEAT_INTERVAL_MS)) {
+            // aubio adaptive threshold scaling: higher sensitivity -> lower threshold
+            float sensScale = 1.6f / Math.max(0.4f, mSensitivity);
+            float threshold = mNarrowAvg[i] * sensScale + (mEnableBandThreshold ? mNarrowThresholds[i] * 0.40f : 0.015f);
+
+            // aubio Peak Picking: onset triggers on the apex of the flux curve
+            boolean isLocalPeak = mNarrowFlux[i] >= mPrevNarrowFlux[i];
+            mPrevNarrowFlux[i] = mNarrowFlux[i];
+
+            boolean levelOk = mNarrowBands[i] > 0.015f; // noise floor gate
+
+            if (mNarrowFlux[i] > threshold && isLocalPeak && levelOk && (now - mLastNarrowBeatTime[i] > NARROW_MIN_INTERVAL_MS[i])) {
                 narrowHit[i] = true;
                 mLastNarrowBeatTime[i] = now;
                 mNarrowIntensities[i] = 1.0f;
@@ -1417,10 +1535,16 @@ public class AudioAnalyzer {
             mWideFlux[i] = Math.max(0f, diff);
             mPrevWideBands[i] = mWideBands[i];
             mWideAvg[i] = alpha * mWideAvg[i] + (1.0f - alpha) * mWideFlux[i];
-            float threshold = mEnableBandThreshold ? Math.max(mWideThresholds[i], mWideAvg[i] * mSensitivity) : (mWideAvg[i] * mSensitivity);
-            boolean levelOk = !mEnableBandThreshold || (mWideBands[i] >= mWideThresholds[i] * 0.75f);
 
-            if (mWideFlux[i] > threshold && levelOk && (now - mLastWideBeatTime[i] > MIN_BEAT_INTERVAL_MS)) {
+            float sensScale = 1.6f / Math.max(0.4f, mSensitivity);
+            float threshold = mWideAvg[i] * sensScale + (mEnableBandThreshold ? mWideThresholds[i] * 0.40f : 0.015f);
+
+            boolean isLocalPeak = mWideFlux[i] >= mPrevWideFlux[i];
+            mPrevWideFlux[i] = mWideFlux[i];
+
+            boolean levelOk = mWideBands[i] > 0.015f;
+
+            if (mWideFlux[i] > threshold && isLocalPeak && levelOk && (now - mLastWideBeatTime[i] > WIDE_MIN_INTERVAL_MS[i])) {
                 wideHit[i] = true;
                 mLastWideBeatTime[i] = now;
                 mWideIntensities[i] = 1.0f;
@@ -1468,106 +1592,47 @@ public class AudioAnalyzer {
             }
         }
 
-        // 4. Студийные фильтры детекции (Gate Check)
+        // 4. Silence Gate Check
         boolean passesFilter = true;
-
         if (mEnableLoudnessGate && mCurrentRms < mLoudnessGateThreshold) {
             passesFilter = false;
         }
 
-        // 5. Trigger Decision based on Spectrum Orientation (Narrow / Wide)
+        // 5. Trigger Decision based on Spectrum Mode
         boolean beatHit = false;
         float maxIntensity = 0f;
         int activeMask = 0;
 
         if (passesFilter) {
-            boolean kickHitNarrow = narrowHit[0] || narrowHit[1];
-            float kickIntNarrow = Math.max(mNarrowIntensities[0], mNarrowIntensities[1]);
-
-            boolean kickHitWide = wideHit[0] || wideHit[1];
-            float kickIntWide = Math.max(mWideIntensities[0], mWideIntensities[1]);
-
-            boolean kickHit = (mSpectrumMode == SPECTRUM_MODE_NARROW) ? kickHitNarrow : kickHitWide;
-            float kickInt = (mSpectrumMode == SPECTRUM_MODE_NARROW) ? kickIntNarrow : kickIntWide;
-
-            // Per-Band Pattern Trigger Mode
-            if (mTriggerMode == MODE_CUSTOM_PATTERN) {
-                if (mStudioAnalysisMode == STUDIO_MODE_FAST || mSpectrumMode == SPECTRUM_MODE_NARROW) {
-                    for (int i = 0; i < NARROW_BANDS_COUNT; i++) {
-                        boolean levelOk = !mEnableBandThreshold || (mNarrowBands[i] >= mNarrowThresholds[i] * 0.70f);
-                        if (mNarrowIntensities[i] > 0.05f && levelOk) {
-                            int mask = getPatternLedMask(mNarrowPatterns[i]);
-                            activeMask |= mask;
-                            maxIntensity = Math.max(maxIntensity, mNarrowIntensities[i]);
-                            if (narrowHit[i] && mask != 0) beatHit = true;
-                        }
-                    }
-                } else {
-                    for (int i = 0; i < WIDE_BANDS_COUNT; i++) {
-                        boolean levelOk = !mEnableBandThreshold || (mWideBands[i] >= mWideThresholds[i] * 0.70f);
-                        if (mWideIntensities[i] > 0.05f && levelOk) {
-                            int mask = getPatternLedMask(mWidePatterns[i]);
-                            activeMask |= mask;
-                            maxIntensity = Math.max(maxIntensity, mWideIntensities[i]);
-                            if (wideHit[i] && mask != 0) beatHit = true;
-                        }
+            if (mStudioAnalysisMode == STUDIO_MODE_FAST || mSpectrumMode == SPECTRUM_MODE_NARROW) {
+                for (int i = 0; i < NARROW_BANDS_COUNT; i++) {
+                    if (mNarrowIntensities[i] > 0.05f) {
+                        int mask = getPatternLedMask(mNarrowPatterns[i]);
+                        activeMask |= mask;
+                        maxIntensity = Math.max(maxIntensity, mNarrowIntensities[i]);
+                        if (narrowHit[i] && mask != 0) beatHit = true;
                     }
                 }
-            } else if (mTriggerMode == MODE_KICK_ONLY) {
-                if (kickHit) beatHit = true;
-                if (kickInt > 0.05f) {
-                    activeMask = RealmeGlyphDriver.LED_ALL;
-                    maxIntensity = kickInt;
-                }
-            } else if (mTriggerMode == MODE_KICK_AND_SNARE) {
-                boolean snareHit = (mSpectrumMode == SPECTRUM_MODE_WIDE) ? (wideHit[3] || wideHit[4]) : narrowHit[2];
-                float snareInt = (mSpectrumMode == SPECTRUM_MODE_WIDE) ? Math.max(mWideIntensities[3], mWideIntensities[4]) : mNarrowIntensities[2];
-
-                if (kickHit || snareHit) beatHit = true;
-
-                if (kickInt > 0.05f) {
-                    activeMask |= (RealmeGlyphDriver.LED_A | RealmeGlyphDriver.LED_C);
-                    maxIntensity = Math.max(maxIntensity, kickInt);
-                }
-                if (snareInt > 0.05f) {
-                    activeMask |= (RealmeGlyphDriver.LED_B | RealmeGlyphDriver.LED_D);
-                    maxIntensity = Math.max(maxIntensity, snareInt);
-                }
-            } else if (mTriggerMode == MODE_FREQUENCY_SPLIT_4WAY) {
-                float subInt = (mSpectrumMode == SPECTRUM_MODE_WIDE) ? mWideIntensities[0] : mNarrowIntensities[0];
-                float kInt = (mSpectrumMode == SPECTRUM_MODE_WIDE) ? mWideIntensities[1] : mNarrowIntensities[1];
-                float snInt = (mSpectrumMode == SPECTRUM_MODE_WIDE) ? mWideIntensities[3] : mNarrowIntensities[2];
-                float trInt = (mSpectrumMode == SPECTRUM_MODE_WIDE) ? mWideIntensities[7] : mNarrowIntensities[3];
-
-                if (subInt > 0.05f) { activeMask |= RealmeGlyphDriver.LED_C; maxIntensity = Math.max(maxIntensity, subInt); }
-                if (kInt > 0.05f) { activeMask |= RealmeGlyphDriver.LED_D; maxIntensity = Math.max(maxIntensity, kInt); }
-                if (snInt > 0.05f) { activeMask |= RealmeGlyphDriver.LED_B; maxIntensity = Math.max(maxIntensity, snInt); }
-                if (trInt > 0.05f) { activeMask |= RealmeGlyphDriver.LED_A; maxIntensity = Math.max(maxIntensity, trInt); }
-
-                beatHit = kickHit || narrowHit[2] || narrowHit[3];
-            } else if (mTriggerMode == MODE_ENERGY_LEVELS) {
-                float totalEnergy = (mNarrowBands[0] * 1.5f + mNarrowBands[1] * 1.2f + mNarrowBands[2] + mNarrowBands[3] * 0.5f);
-                float normEnergy = Math.min(1.0f, totalEnergy / 60.0f);
-                maxIntensity = normEnergy;
-
-                if (normEnergy > 0.15f) activeMask |= RealmeGlyphDriver.LED_C;
-                if (normEnergy > 0.40f) activeMask |= RealmeGlyphDriver.LED_D;
-                if (normEnergy > 0.65f) activeMask |= RealmeGlyphDriver.LED_B;
-                if (normEnergy > 0.85f) {
-                    activeMask |= RealmeGlyphDriver.LED_A;
-                    beatHit = true;
+            } else {
+                for (int i = 0; i < WIDE_BANDS_COUNT; i++) {
+                    if (mWideIntensities[i] > 0.05f) {
+                        int mask = getPatternLedMask(mWidePatterns[i]);
+                        activeMask |= mask;
+                        maxIntensity = Math.max(maxIntensity, mWideIntensities[i]);
+                        if (wideHit[i] && mask != 0) beatHit = true;
+                    }
                 }
             }
         }
 
-        // Apply Min & Max Hold Time logic
+        // 6. Apply Min & Max Hold Time logic
         if (beatHit) {
             mLastBeatTime = now;
             mIsBeatActive = true;
             mLastPeakIntensity = maxIntensity;
         }
 
-        if (mEnableMinHoldTime && mIsBeatActive) {
+        if (mEnableMinHoldTime && mIsBeatActive && passesFilter) {
             long pulseAge = now - mLastBeatTime;
             if (pulseAge < mMinHoldTimeMs) {
                 maxIntensity = Math.max(maxIntensity, Math.max(0.40f, mLastPeakIntensity * 0.80f));
@@ -1593,17 +1658,21 @@ public class AudioAnalyzer {
             maxIntensity = Math.max(0.01f, Math.min(1.0f, maxIntensity * var));
         }
 
-        // Apply Peak Limiter
+        // Apply Peak Limiter (normalized to reach full 1.0f brightness)
         if (mEnableLimiter && maxIntensity > 0.05f) {
-            maxIntensity = (float) Math.tanh(maxIntensity * 1.35) * 0.96f;
+            maxIntensity = (float) (Math.tanh(maxIntensity * 1.6) / Math.tanh(1.6));
         }
 
-        // Apply FInterp exponential smoothing (photo 3)
+        // Apply FInterp: Instantaneous attack (0 latency flash) + smooth exponential decay
         if (mEnableFInterp) {
-            float dt = (mLastFrameTime > 0) ? (now - mLastFrameTime) / 1000.0f : 0.02f;
-            dt = Math.max(0.005f, Math.min(0.05f, dt));
-            float alphaInterp = (float) (1.0 - Math.exp(-mFInterpSpeed * dt));
-            mSmoothedIntensity += (maxIntensity - mSmoothedIntensity) * alphaInterp;
+            if (maxIntensity > mSmoothedIntensity) {
+                mSmoothedIntensity = maxIntensity;
+            } else {
+                float dt = (mLastFrameTime > 0) ? (now - mLastFrameTime) / 1000.0f : 0.02f;
+                dt = Math.max(0.005f, Math.min(0.05f, dt));
+                float alphaInterp = (float) (1.0 - Math.exp(-mFInterpSpeed * dt));
+                mSmoothedIntensity += (maxIntensity - mSmoothedIntensity) * alphaInterp;
+            }
             maxIntensity = mSmoothedIntensity;
         } else {
             mSmoothedIntensity = maxIntensity;

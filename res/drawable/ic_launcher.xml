@@ -7,15 +7,15 @@
     <path
         android:fillColor="#0B0C0E"
         android:pathData="M0,0h108v108h-108z" />
-    <!-- Outer Solid Blue Ring -->
+    <!-- Outer Solid Ring -->
     <path
-        android:strokeColor="#7294F0"
+        android:strokeColor="@color/volt_lime"
         android:strokeWidth="6"
         android:strokeLineCap="round"
         android:pathData="M54,18 A36,36 0 1,1 53.9,18" />
     <!-- Center Equalizer bars -->
     <path
-        android:strokeColor="#7294F0"
+        android:strokeColor="@color/volt_lime"
         android:strokeWidth="4"
         android:strokeLineCap="round"
         android:pathData="M38,46 L38,62 M46,38 L46,70 M54,32 L54,76 M62,42 L62,66 M70,48 L70,60" />

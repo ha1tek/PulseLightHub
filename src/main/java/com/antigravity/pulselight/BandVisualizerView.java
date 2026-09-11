@@ -18,6 +18,7 @@ public class BandVisualizerView extends View {
     private Paint mBgBarPaint;
     private Paint mTextPaint;
     private RectF mBarRect = new RectF();
+    private int mBarColor = 0xFFCCFF00;
 
     public BandVisualizerView(Context context) {
         super(context);
@@ -35,9 +36,10 @@ public class BandVisualizerView extends View {
     }
 
     private void init() {
+        mBarColor = ThemeManager.getAccentColor(getContext());
         mBarPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         mBarPaint.setStyle(Paint.Style.FILL);
-        mBarPaint.setColor(Color.parseColor("#7294F0"));
+        mBarPaint.setColor(mBarColor);
 
         mBgBarPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         mBgBarPaint.setStyle(Paint.Style.FILL);
@@ -47,6 +49,14 @@ public class BandVisualizerView extends View {
         mTextPaint.setColor(Color.parseColor("#8E909A"));
         mTextPaint.setTextAlign(Paint.Align.CENTER);
         mTextPaint.setLetterSpacing(0.08f);
+    }
+
+    public void setBarColor(int color) {
+        if (mBarPaint != null && color != 0) {
+            mBarColor = color;
+            mBarPaint.setColor(color);
+            postInvalidateOnAnimation();
+        }
     }
 
     public void setLevels(float[] levels) {
@@ -102,11 +112,11 @@ public class BandVisualizerView extends View {
             float activeTop = barBottom - activeHeight;
             mBarRect.set(barLeft, activeTop, barRight, barBottom);
 
-            // Give kick/sub a brighter neon accent
+            mBarPaint.setColor(mBarColor);
             if (i == 0 || i == 1) {
-                mBarPaint.setColor(Color.parseColor("#7294F0"));
+                mBarPaint.setAlpha(255);
             } else {
-                mBarPaint.setColor(Color.parseColor("#5A7FD8"));
+                mBarPaint.setAlpha(190);
             }
             canvas.drawRoundRect(mBarRect, 8f, 8f, mBarPaint);
 

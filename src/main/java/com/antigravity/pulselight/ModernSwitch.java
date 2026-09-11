@@ -28,9 +28,15 @@ public class ModernSwitch extends View {
     // Colors
     private static final int COLOR_OFF_TRACK = 0xFF22242D;
     private static final int COLOR_OFF_BORDER = 0xFF353846;
-    private static final int COLOR_ON_TRACK = 0xFF7294F0;
+    private static final int DEFAULT_ON_TRACK = 0xFFCCFF00;
+    private int mOnColor = DEFAULT_ON_TRACK;
     private static final int COLOR_THUMB = 0xFFFFFFFF;
     private static final int COLOR_SHADOW = 0x33000000;
+
+    private final ThemeManager.OnThemeChangeListener mThemeListener = (bgColor, accentColor) -> {
+        mOnColor = accentColor;
+        postInvalidate();
+    };
 
     public interface OnCheckedChangeListener {
         void onCheckedChanged(ModernSwitch view, boolean isChecked);
@@ -49,6 +55,7 @@ public class ModernSwitch extends View {
     public ModernSwitch(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         density = getResources().getDisplayMetrics().density;
+        mOnColor = ThemeManager.getAccentColor(context);
 
         trackPaint.setStyle(Paint.Style.FILL);
         trackBorderPaint.setStyle(Paint.Style.STROKE);
@@ -63,6 +70,24 @@ public class ModernSwitch extends View {
 
         setClickable(true);
         setFocusable(false);
+    }
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        mOnColor = ThemeManager.getAccentColor(getContext());
+        ThemeManager.addListener(mThemeListener);
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        ThemeManager.removeListener(mThemeListener);
+    }
+
+    public void setAccentColor(int color) {
+        this.mOnColor = color;
+        invalidate();
     }
 
     public void setOnCheckedChangeListener(OnCheckedChangeListener listener) {
@@ -144,7 +169,7 @@ public class ModernSwitch extends View {
         trackRect.set(0, 0, w, h);
 
         // 1. Draw Track
-        int trackColor = blendColors(COLOR_OFF_TRACK, COLOR_ON_TRACK, progress);
+        int trackColor = blendColors(COLOR_OFF_TRACK, mOnColor, progress);
         trackPaint.setColor(trackColor);
         canvas.drawRoundRect(trackRect, radius, radius, trackPaint);
 

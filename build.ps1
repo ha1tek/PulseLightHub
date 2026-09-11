@@ -15,7 +15,8 @@ Write-Host "=== Building PulseLightHub (Offline Architecture) ==="
 New-Item -ItemType Directory -Force -Path "$projectDir\build\gen", "$projectDir\build\classes", "$projectDir\build\dex" | Out-Null
 
 # Clean previous build artifacts
-Remove-Item -Recurse -Force "$projectDir\build\classes\*", "$projectDir\build\dex\*" -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force "$projectDir\build\classes\*", "$projectDir\build\dex\*", "$projectDir\build\gen\*" -ErrorAction SilentlyContinue
+Remove-Item -Force "$projectDir\build\compiled_res.zip", "$projectDir\build\unaligned_unpacked.apk", "$projectDir\build\PulseLightHub.apk" -ErrorAction SilentlyContinue
 
 Write-Host "--- 1. Compiling resources with aapt2 ---"
 & "$buildTools\aapt2.exe" compile --dir "$projectDir\res" -o "$projectDir\build\compiled_res.zip"
@@ -50,11 +51,16 @@ Write-Host "--- 7. Signing APK ---"
 if ($LASTEXITCODE -ne 0) { throw "apksigner failed" }
 
 Write-Host "--- 8. Installing APK on device ($device) ---"
+& $adb connect $device
+Start-Sleep -Milliseconds 600
 & $adb -s $device install -r "$projectDir\build\PulseLightHub.apk"
 if ($LASTEXITCODE -ne 0) { throw "adb install failed" }
 
-Write-Host "--- 9. Granting WRITE_SECURE_SETTINGS ---"
+Write-Host "--- 9. Granting WRITE_SECURE_SETTINGS & Audio Permissions ---"
 & $adb -s $device shell pm grant com.antigravity.pulselight android.permission.WRITE_SECURE_SETTINGS
+& $adb -s $device shell pm grant com.antigravity.pulselight android.permission.RECORD_AUDIO
+& $adb -s $device shell pm grant com.antigravity.pulselight android.permission.POST_NOTIFICATIONS
+& $adb -s $device shell appops set com.antigravity.pulselight PROJECT_MEDIA allow
 & $adb -s $device shell settings put global customize_breath_light_time 00002359
 & $adb -s $device shell settings put global customize_breath_light_master_switch 1
 & $adb -s $device shell settings put global oplus_breath_light_master_switch 1

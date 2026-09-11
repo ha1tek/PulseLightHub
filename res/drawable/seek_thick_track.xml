@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Inactive Background Track -->
+    <item android:id="@android:id/background">
+        <shape android:shape="rectangle">
+            <corners android:radius="10dp" />
+            <solid android:color="#232733" />
+            <size android:height="20dp" />
+        </shape>
+    </item>
+    <!-- Active Progress Bar with rounded end caps -->
+    <item android:id="@android:id/progress">
+        <clip>
+            <shape android:shape="rectangle">
+                <corners android:radius="10dp" />
+                <solid android:color="@color/volt_lime" />
+                <size android:height="20dp" />
+            </shape>
+        </clip>
+    </item>
+</layer-list>

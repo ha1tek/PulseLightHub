@@ -166,6 +166,11 @@ public class AppAdapter extends BaseAdapter implements Filterable {
 
         final AppItem item = getItem(position);
         if (item != null) {
+            int bgColor = ThemeManager.getBackgroundColor(context);
+            int cardBgColor = ThemeManager.getCardBackgroundColor(bgColor);
+            int cardStrokeColor = ThemeManager.getCardStrokeColor(cardBgColor);
+            holder.cardContainer.setBackground(ThemeManager.createCardDrawable(cardBgColor, cardStrokeColor, 16, context));
+
             holder.appName.setText(item.getAppName());
             holder.appPackage.setText(item.getPackageName());
 

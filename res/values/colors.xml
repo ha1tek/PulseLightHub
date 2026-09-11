@@ -8,9 +8,10 @@
     <color name="border_subtle">#262831</color>
     <color name="border_pill">#2E313D</color>
 
-    <!-- Exact Solid Blue Brand Accent (#7294F0 from user image) -->
-    <color name="brand_blue">#7294F0</color>
-    <color name="volt_lime">#7294F0</color>
+    <!-- Default Brand Accent Fallback (Neon Lime #CCFF00) -->
+    <color name="brand_blue">#CCFF00</color>
+    <color name="volt_lime">#CCFF00</color>
+    <color name="accent_cyan">#00F0FF</color>
 
     <!-- Typography -->
     <color name="text_black">#0C101A</color>
@@ -20,7 +21,7 @@
     <color name="text_hint">#555866</color>
 
     <!-- System / Status -->
-    <color name="status_green">#7294F0</color>
+    <color name="status_green">#10B981</color>
     <color name="status_red">#FF453A</color>
     <color name="badge_red_bg">#321516</color>
     <color name="badge_red_border">#5E2023</color>

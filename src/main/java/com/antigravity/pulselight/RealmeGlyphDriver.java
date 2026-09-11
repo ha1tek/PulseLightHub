@@ -256,8 +256,8 @@ public class RealmeGlyphDriver {
             sendPacket((byte) LIGHT_ID_HALO, (byte) MODE_MULTI_LED, (byte) r, (byte) g, (byte) b, (byte) ledsMask);
         }
 
-        // Keep Settings.Global synced
-        if (sAppContext != null) {
+        // Keep Settings.Global synced on static preview flashes
+        if (autoTurnOffMs > 0 && sAppContext != null) {
             try {
                 String hex = PulseLightManager.colorToHex(color);
                 PulseLightManager.setGlobalString(sAppContext, PulseLightManager.KEY_MUSIC_COLOR, hex);

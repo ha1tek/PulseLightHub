@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:maxWidth="320dp"
+    android:orientation="vertical"
+    android:background="@drawable/bg_card_dark"
+    android:padding="16dp"
+    android:elevation="10dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/tv_info_bubble_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Параметр"
+            android:textColor="@color/volt_lime"
+            android:textSize="13sp"
+            android:letterSpacing="0.06"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/btn_info_bubble_close_x"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:gravity="center"
+            android:text="✕"
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp"
+            android:background="@drawable/bg_info_button"
+            android:clickable="true"
+            android:focusable="true" />
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="10dp"
+        android:background="#232734" />
+
+    <TextView
+        android:id="@+id/tv_info_bubble_desc"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="@color/text_white"
+        android:textSize="12sp"
+        android:lineSpacingExtra="3dp"
+        android:text="Подробная информация о параметре..." />
+
+    <TextView
+        android:id="@+id/btn_info_bubble_ok"
+        android:layout_width="match_parent"
+        android:layout_height="32dp"
+        android:layout_marginTop="12dp"
+        android:gravity="center"
+        android:background="@drawable/bg_pill_dark"
+        android:text="Понятно"
+        android:textColor="@color/text_black"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:clickable="true"
+        android:focusable="true" />
+</LinearLayout>

@@ -56,8 +56,7 @@ Start-Sleep -Milliseconds 600
 & $adb -s $device install -r "$projectDir\build\PulseLightHub.apk"
 if ($LASTEXITCODE -ne 0) { throw "adb install failed" }
 
-Write-Host "--- 9. Granting WRITE_SECURE_SETTINGS & Audio Permissions ---"
-& $adb -s $device shell pm grant com.antigravity.pulselight android.permission.WRITE_SECURE_SETTINGS
+Write-Host "--- 9. Granting Audio & Media Permissions ---"
 & $adb -s $device shell pm grant com.antigravity.pulselight android.permission.RECORD_AUDIO
 & $adb -s $device shell pm grant com.antigravity.pulselight android.permission.POST_NOTIFICATIONS
 & $adb -s $device shell appops set com.antigravity.pulselight PROJECT_MEDIA allow

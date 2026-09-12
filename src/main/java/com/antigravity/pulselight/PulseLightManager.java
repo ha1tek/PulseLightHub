@@ -46,8 +46,7 @@ public class PulseLightManager {
             "fm.qingting.qtradio:false,com.wondertek.migusm:false";
 
     public static boolean hasPermission(Context context) {
-        return context.checkSelfPermission("android.permission.WRITE_SECURE_SETTINGS") 
-                == PackageManager.PERMISSION_GRANTED;
+        return RealmeGlyphDriver.isConnected();
     }
 
     // =========================================================================

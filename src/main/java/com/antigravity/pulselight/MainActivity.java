@@ -25,6 +25,7 @@ import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.Gravity;
+import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -103,7 +104,7 @@ public class MainActivity extends Activity {
     private View containerFastMode, containerDeepMode;
     private LinearLayout layoutQuickTriggersList;
     private final List<TextView> mQuickTriggerButtons = new ArrayList<>();
-    private ModernSwitch switchBandEnabled;
+    private ModernSwitch switchBandEnabled, switchBandColorCycle;
     private TextView tvSelectedBandTitle, tvSelectedBandGainVal;
     private SeekBar seekBandGain;
     private TextView tvSelectedBandThreshVal;
@@ -140,6 +141,15 @@ public class MainActivity extends Activity {
 
     private int mSelectedBandIndex = 0;
     private boolean mSelectedBandIsWide = false;
+
+    // Device Model Selection (GT 5 vs GT NEO 5)
+    private View btnModelGt5, btnModelGtNeo5;
+    private RealmeGlyphView previewGlyphGt5, previewGlyphGtNeo5;
+    private TextView tvLabelModelGt5, tvLabelModelGtNeo5;
+
+    // Band Patterns vs Neo 5 Single Glyph Reaction
+    private View containerBandPatterns, containerNeo5BandReaction;
+    private TextView btnNeo5Activate, btnNeo5Color, btnNeo5FlashColor, btnNeo5Deactivate;
 
     // --- Page 3: Settings (Engine & Customization) ---
     private ModernSwitch switchAudioEngine;
@@ -227,6 +237,12 @@ public class MainActivity extends Activity {
                             engineSpectrumVisualizer.setBarColor(accentColor);
                             engineSpectrumVisualizer.updateData(result);
                         }
+                    }
+                }
+
+                if (result.isColorCycle) {
+                    if (colorSliderPicker != null && colorSliderPicker.getColor() != currentColor) {
+                        colorSliderPicker.setColor(currentColor);
                     }
                 }
 
@@ -467,6 +483,14 @@ public class MainActivity extends Activity {
         glyphVectorView = findViewById(R.id.glyph_vector_view);
         colorSliderPicker = findViewById(R.id.color_slider_view);
         btnTurnOff = findViewById(R.id.btn_turn_off_hal);
+
+        int currentDeviceModel = DeviceModelManager.getDeviceModel(this);
+        if (glyphVectorView != null) {
+            glyphVectorView.setDeviceModel(currentDeviceModel, false);
+        }
+        if (colorSliderPicker != null) {
+            colorSliderPicker.setDeviceModel(currentDeviceModel);
+        }
 
         // Custom Color Toggle & Wheel
         btnToggleCustomColor = findViewById(R.id.btn_toggle_custom_color);
@@ -716,6 +740,7 @@ public class MainActivity extends Activity {
         }
 
         switchBandEnabled = findViewById(R.id.switch_band_enabled);
+        switchBandColorCycle = findViewById(R.id.switch_band_color_cycle);
 
         if (btnModeFast != null) btnModeFast.setOnClickListener(v -> setStudioAnalysisMode(AudioAnalyzer.STUDIO_MODE_FAST));
         if (btnModeDeep != null) btnModeDeep.setOnClickListener(v -> setStudioAnalysisMode(AudioAnalyzer.STUDIO_MODE_DEEP));
@@ -729,6 +754,12 @@ public class MainActivity extends Activity {
                 updateBandGainControls();
                 updateBandPatternButtonsUI();
             });
+            for (int i = 0; i < 4; i++) {
+                studioSpectrumVisualizer.setBandEnabled(i, false, mAudioAnalyzer.isNarrowBandEnabled(i));
+            }
+            for (int i = 0; i < 12; i++) {
+                studioSpectrumVisualizer.setBandEnabled(i, true, mAudioAnalyzer.isWideBandEnabled(i));
+            }
         }
 
         if (seekBandGain != null) {
@@ -809,6 +840,26 @@ public class MainActivity extends Activity {
             if (mColPatternButtons[i] != null) {
                 mColPatternButtons[i].setOnClickListener(v -> selectBandPattern(pVal));
             }
+        }
+
+        containerBandPatterns = findViewById(R.id.container_band_patterns);
+        containerNeo5BandReaction = findViewById(R.id.container_neo5_band_reaction);
+        btnNeo5Activate = findViewById(R.id.btn_neo5_activate);
+        btnNeo5Color = findViewById(R.id.btn_neo5_color);
+        btnNeo5FlashColor = findViewById(R.id.btn_neo5_flash_color);
+        btnNeo5Deactivate = findViewById(R.id.btn_neo5_deactivate);
+
+        if (btnNeo5Activate != null) {
+            btnNeo5Activate.setOnClickListener(v -> selectBandPattern(AudioAnalyzer.PATTERN_ALL));
+        }
+        if (btnNeo5Color != null) {
+            btnNeo5Color.setOnClickListener(v -> selectBandPattern(AudioAnalyzer.PATTERN_COLOR_CYCLE));
+        }
+        if (btnNeo5FlashColor != null) {
+            btnNeo5FlashColor.setOnClickListener(v -> selectBandPattern(AudioAnalyzer.PATTERN_FLASH_AND_COLOR_CYCLE));
+        }
+        if (btnNeo5Deactivate != null) {
+            btnNeo5Deactivate.setOnClickListener(v -> selectBandPattern(AudioAnalyzer.PATTERN_OFF));
         }
 
         // Glyph Beat Hold Times
@@ -1424,8 +1475,10 @@ public class MainActivity extends Activity {
                         studioSpectrumVisualizer.setBandEnabled(mSelectedBandIndex, false, isChecked);
                     }
                 }
+                PulseAudioService.reloadSettings(MainActivity.this);
             });
         }
+        updateBandPatternButtonsUI();
     }
 
     private static final int[] COL_PATTERN_VALUES = {
@@ -1451,15 +1504,25 @@ public class MainActivity extends Activity {
             mAudioAnalyzer.setNarrowPattern(mSelectedBandIndex, patternIndex);
         }
         mAudioAnalyzer.saveSettings(this);
+        PulseAudioService.reloadSettings(this);
         updateBandPatternButtonsUI();
 
         int mask = AudioAnalyzer.getPatternLedMask(patternIndex);
         int curColor = GlyphColorManager.getUnifiedColor(this);
+        if (DeviceModelManager.isGtNeo5(this)) {
+            if (patternIndex == AudioAnalyzer.PATTERN_COLOR_CYCLE || patternIndex == AudioAnalyzer.PATTERN_FLASH_AND_COLOR_CYCLE) {
+                curColor = GlyphColorManager.getRandomNeo5Color();
+                mask = RealmeGlyphDriver.LED_ALL;
+            } else {
+                mask = (patternIndex != AudioAnalyzer.PATTERN_OFF) ? RealmeGlyphDriver.LED_ALL : 0;
+            }
+        }
         if (glyphVectorView != null) {
             glyphVectorView.setSegmentIntensity(mask, 1.0f, curColor);
+            final int finalMask = mask;
             mainHandler.postDelayed(() -> {
                 if (glyphVectorView != null) {
-                    glyphVectorView.fadeSegmentToResting(RealmeGlyphDriver.LED_ALL, 180);
+                    glyphVectorView.fadeSegmentToResting(finalMask != 0 ? finalMask : RealmeGlyphDriver.LED_ALL, 180);
                 }
             }, 300);
         }
@@ -1482,6 +1545,50 @@ public class MainActivity extends Activity {
                 int pVal = COL_PATTERN_VALUES[i];
                 updatePill(mColPatternButtons[i], pVal == activePattern);
             }
+        }
+
+        boolean isColorCycle = (activePattern == AudioAnalyzer.PATTERN_COLOR_CYCLE);
+        boolean isFlashColor = (activePattern == AudioAnalyzer.PATTERN_FLASH_AND_COLOR_CYCLE);
+        boolean isActivated = (activePattern == AudioAnalyzer.PATTERN_ALL || (activePattern != AudioAnalyzer.PATTERN_OFF && !isColorCycle && !isFlashColor));
+        boolean isDeactivated = (activePattern == AudioAnalyzer.PATTERN_OFF);
+
+        if (btnNeo5Activate != null) {
+            updatePill(btnNeo5Activate, isActivated);
+        }
+        if (btnNeo5Color != null) {
+            updatePill(btnNeo5Color, isColorCycle);
+        }
+        if (btnNeo5FlashColor != null) {
+            updatePill(btnNeo5FlashColor, isFlashColor);
+        }
+        if (btnNeo5Deactivate != null) {
+            updatePill(btnNeo5Deactivate, isDeactivated);
+        }
+
+        if (switchBandColorCycle != null) {
+            boolean isCycle = mSelectedBandIsWide
+                    ? mAudioAnalyzer.isWideColorCycle(mSelectedBandIndex)
+                    : mAudioAnalyzer.isNarrowColorCycle(mSelectedBandIndex);
+            switchBandColorCycle.setOnCheckedChangeListener(null);
+            switchBandColorCycle.setChecked(isCycle);
+            switchBandColorCycle.setOnCheckedChangeListener((view, isChecked) -> {
+                if (mSelectedBandIsWide) {
+                    mAudioAnalyzer.setWideColorCycle(mSelectedBandIndex, isChecked, MainActivity.this);
+                } else {
+                    mAudioAnalyzer.setNarrowColorCycle(mSelectedBandIndex, isChecked, MainActivity.this);
+                }
+                PulseAudioService.reloadSettings(MainActivity.this);
+                if (isChecked) {
+                    int randColor = GlyphColorManager.getNextRainbowColor();
+                    RealmeGlyphDriver.flashSegment(RealmeGlyphDriver.LED_ALL, randColor, 300);
+                    if (glyphVectorView != null) {
+                        glyphVectorView.setSegmentIntensity(RealmeGlyphDriver.LED_ALL, 1.0f, randColor);
+                        mainHandler.postDelayed(() -> {
+                            if (glyphVectorView != null) glyphVectorView.fadeSegmentToResting(RealmeGlyphDriver.LED_ALL, 180);
+                        }, 300);
+                    }
+                }
+            });
         }
     }
 
@@ -1818,6 +1925,7 @@ public class MainActivity extends Activity {
         paletteBgColor = findViewById(R.id.palette_bg_color);
         paletteAccentColor = findViewById(R.id.palette_accent_color);
         setupThemeControls();
+        setupDeviceModelControls();
 
         tvSensitivityValue = findViewById(R.id.tv_sensitivity_value);
         seekSensitivity = findViewById(R.id.seek_sensitivity);
@@ -1923,6 +2031,141 @@ public class MainActivity extends Activity {
         applyThemeColors(ThemeManager.getBackgroundColor(this), ThemeManager.getAccentColor(this));
     }
 
+    private void setupDeviceModelControls() {
+        btnModelGt5 = findViewById(R.id.btn_model_gt5);
+        btnModelGtNeo5 = findViewById(R.id.btn_model_gt_neo5);
+        previewGlyphGt5 = findViewById(R.id.preview_glyph_gt5);
+        previewGlyphGtNeo5 = findViewById(R.id.preview_glyph_gt_neo5);
+        tvLabelModelGt5 = findViewById(R.id.tv_label_model_gt5);
+        tvLabelModelGtNeo5 = findViewById(R.id.tv_label_model_gt_neo5);
+
+        if (previewGlyphGt5 != null) {
+            previewGlyphGt5.setDeviceModel(DeviceModelManager.MODEL_GT_5, true);
+        }
+        if (previewGlyphGtNeo5 != null) {
+            previewGlyphGtNeo5.setDeviceModel(DeviceModelManager.MODEL_GT_NEO_5, true);
+        }
+
+        if (btnModelGt5 != null) {
+            btnModelGt5.setOnClickListener(v -> selectDeviceModel(DeviceModelManager.MODEL_GT_5));
+        }
+        if (btnModelGtNeo5 != null) {
+            btnModelGtNeo5.setOnClickListener(v -> selectDeviceModel(DeviceModelManager.MODEL_GT_NEO_5));
+        }
+
+        updateDeviceModelUI(DeviceModelManager.getDeviceModel(this), false);
+    }
+
+    private void selectDeviceModel(int model) {
+        int currentModel = DeviceModelManager.getDeviceModel(this);
+        if (currentModel == model) {
+            return;
+        }
+
+        // 1. Сохраняем текущие параметры анализатора
+        if (mAudioAnalyzer != null) {
+            mAudioAnalyzer.saveSettings(this);
+        }
+
+        // 2. Переключаем модель устройства
+        DeviceModelManager.setDeviceModel(this, model);
+
+        // 3. Загружаем и применяем активный пресет для выбранного режима
+        String targetPresetId = AudioPresetManager.getActivePresetId(this, model);
+        AudioPreset targetPreset = AudioPresetManager.getPresetById(this, targetPresetId);
+        if (mAudioAnalyzer != null && targetPreset != null) {
+            mAudioAnalyzer.applyPreset(targetPreset, this);
+            if (studioSpectrumVisualizer != null) {
+                if (targetPreset.narrowEnabled != null) {
+                    for (int i = 0; i < Math.min(4, targetPreset.narrowEnabled.length); i++) {
+                        studioSpectrumVisualizer.setBandEnabled(i, false, targetPreset.narrowEnabled[i]);
+                    }
+                }
+                if (targetPreset.wideEnabled != null) {
+                    for (int i = 0; i < Math.min(12, targetPreset.wideEnabled.length); i++) {
+                        studioSpectrumVisualizer.setBandEnabled(i, true, targetPreset.wideEnabled[i]);
+                    }
+                }
+            }
+            if (engineSpectrumVisualizer != null) {
+                engineSpectrumVisualizer.setSpectrumMode(mAudioAnalyzer.getSpectrumMode());
+                engineSpectrumVisualizer.setBarColor(GlyphColorManager.getUnifiedColor(this));
+            }
+        }
+
+        // 4. Обновляем все блоки интерфейса
+        updateDeviceModelUI(model, true);
+        updateStudioSpectrumUI();
+        updateStudioPatternsUI();
+        updateEngineControls();
+        updatePresetDropdownUI();
+
+        if (btnModelGt5 != null) {
+            btnModelGt5.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+        }
+
+        String modelName = (model == DeviceModelManager.MODEL_GT_NEO_5) ? "Realme GT Neo 5" : "Realme GT 5";
+        String presetName = (targetPreset != null) ? targetPreset.name : "";
+        Toast.makeText(this, "Включен " + modelName + " — пресет: " + presetName, Toast.LENGTH_SHORT).show();
+    }
+
+    private void updateDeviceModelUI(int model, boolean pulseMain) {
+        boolean isNeo5 = (model == DeviceModelManager.MODEL_GT_NEO_5);
+        int accentColor = ThemeManager.getAccentColor(this);
+        int cardBgColor = ThemeManager.getCardBackgroundColor(ThemeManager.getBackgroundColor(this));
+        int cardStrokeColor = ThemeManager.getCardStrokeColor(cardBgColor);
+
+        int activeBg = Color.parseColor("#161B26");
+        int inactiveBg = Color.parseColor("#11131A");
+
+        if (btnModelGt5 != null) {
+            Drawable bgGt5 = isNeo5
+                    ? ThemeManager.createStrokedCardDrawable(inactiveBg, cardStrokeColor, 1.0f, 12, this)
+                    : ThemeManager.createStrokedCardDrawable(activeBg, accentColor, 1.8f, 12, this);
+            btnModelGt5.setBackground(bgGt5);
+        }
+        if (btnModelGtNeo5 != null) {
+            Drawable bgNeo5 = isNeo5
+                    ? ThemeManager.createStrokedCardDrawable(activeBg, accentColor, 1.8f, 12, this)
+                    : ThemeManager.createStrokedCardDrawable(inactiveBg, cardStrokeColor, 1.0f, 12, this);
+            btnModelGtNeo5.setBackground(bgNeo5);
+        }
+
+        if (previewGlyphGt5 != null) {
+            previewGlyphGt5.setMiniPreviewTheme(accentColor, !isNeo5);
+        }
+        if (previewGlyphGtNeo5 != null) {
+            previewGlyphGtNeo5.setMiniPreviewTheme(accentColor, isNeo5);
+        }
+
+        if (tvLabelModelGt5 != null && tvLabelModelGtNeo5 != null) {
+            int activeColor = getColor(R.color.text_white);
+            int inactiveColor = getColor(R.color.text_secondary);
+            tvLabelModelGt5.setTextColor(isNeo5 ? inactiveColor : activeColor);
+            tvLabelModelGtNeo5.setTextColor(isNeo5 ? activeColor : inactiveColor);
+        }
+
+        if (glyphVectorView != null) {
+            glyphVectorView.setDeviceModel(model, false);
+            if (pulseMain) {
+                glyphVectorView.pulsePreview(GlyphColorManager.getUnifiedColor(this));
+            }
+        }
+
+        if (colorSliderPicker != null) {
+            colorSliderPicker.setDeviceModel(model);
+        }
+
+        if (containerBandPatterns != null) {
+            containerBandPatterns.setVisibility(isNeo5 ? View.GONE : View.VISIBLE);
+        }
+        if (containerNeo5BandReaction != null) {
+            containerNeo5BandReaction.setVisibility(isNeo5 ? View.VISIBLE : View.GONE);
+        }
+
+        updateBandPatternButtonsUI();
+    }
+
     private void applyThemeColors(int bgColor, int accentColor) {
         // 1. System status bar, nav bar & decor view
         if (getWindow() != null) {
@@ -1991,6 +2234,7 @@ public class MainActivity extends Activity {
             btnStudioAddPreset.setTextColor(ThemeManager.getContrastTextColor(accentColor));
         }
         updateStudioPatternsUI();
+        updateDeviceModelUI(DeviceModelManager.getDeviceModel(this), false);
     }
 
     private void applyAccentTheming(View view, int accentColor) {
@@ -2318,12 +2562,14 @@ public class MainActivity extends Activity {
         ModernSwitch switchSens = dialogView.findViewById(R.id.switch_calib_sens);
         ModernSwitch switchLoud = dialogView.findViewById(R.id.switch_calib_loudness);
         ModernSwitch switchDecay = dialogView.findViewById(R.id.switch_calib_decay);
+        ModernSwitch switchMinHold = dialogView.findViewById(R.id.switch_calib_min_hold);
 
         if (switchGains != null) switchGains.setChecked(true);
         if (switchThresh != null) switchThresh.setChecked(mAudioAnalyzer != null && mAudioAnalyzer.isEnableBandThreshold());
         if (switchSens != null) switchSens.setChecked(true);
         if (switchLoud != null) switchLoud.setChecked(mAudioAnalyzer != null && mAudioAnalyzer.isEnableLoudnessGate());
         if (switchDecay != null) switchDecay.setChecked(true);
+        if (switchMinHold != null) switchMinHold.setChecked(true);
 
         View btnCancel = dialogView.findViewById(R.id.btn_dialog_cancel_calib);
         if (btnCancel != null) {
@@ -2344,9 +2590,10 @@ public class MainActivity extends Activity {
                 boolean calibS = (switchSens == null || switchSens.isChecked());
                 boolean calibL = (switchLoud == null || switchLoud.isChecked());
                 boolean calibD = (switchDecay == null || switchDecay.isChecked());
+                boolean calibMH = (switchMinHold == null || switchMinHold.isChecked());
 
                 dialog.dismiss();
-                startCalibrationProcess(durMs[0], calibG, calibT, calibS, calibL, calibD);
+                startCalibrationProcess(durMs[0], calibG, calibT, calibS, calibL, calibD, calibMH);
             });
         }
 
@@ -2354,7 +2601,8 @@ public class MainActivity extends Activity {
     }
 
     private void startCalibrationProcess(int durationMs, boolean calibGains, boolean calibThresholds,
-                                         boolean calibSens, boolean calibLoudness, boolean calibDecay) {
+                                         boolean calibSens, boolean calibLoudness, boolean calibDecay,
+                                         boolean calibMinHold) {
         if (!PulseAudioService.isRunning()) {
             Toast.makeText(this, "Включите аудио-движок и воспроизведение музыки", Toast.LENGTH_LONG).show();
             return;
@@ -2385,6 +2633,7 @@ public class MainActivity extends Activity {
                     updateBandGainControls();
                     updateBandPatternButtonsUI();
                     updateEngineControls();
+                    updateHoldTimesUI();
                     if (btnAutoCalibrate != null) {
                         btnAutoCalibrate.setEnabled(true);
                         btnAutoCalibrate.setText("Автокалибровка");
@@ -2394,7 +2643,37 @@ public class MainActivity extends Activity {
             }
         };
 
-        PulseAudioService.startAutoCalibration(durationMs, calibGains, calibThresholds, calibSens, calibLoudness, calibDecay, cb);
+        PulseAudioService.startAutoCalibration(durationMs, calibGains, calibThresholds, calibSens, calibLoudness, calibDecay, calibMinHold, cb);
+    }
+
+    private void updateHoldTimesUI() {
+        if (mAudioAnalyzer == null) return;
+        if (switchGlyphMinTime != null) {
+            switchGlyphMinTime.setChecked(mAudioAnalyzer.isEnableMinHoldTime());
+        }
+        if (containerGlyphMinTime != null) {
+            containerGlyphMinTime.setVisibility(mAudioAnalyzer.isEnableMinHoldTime() ? View.VISIBLE : View.GONE);
+        }
+        if (seekGlyphMinTime != null) {
+            int holdMs = mAudioAnalyzer.getMinHoldTimeMs();
+            seekGlyphMinTime.setProgress(Math.max(0, Math.min(290, holdMs - 10)));
+            if (tvGlyphMinTimeVal != null) {
+                tvGlyphMinTimeVal.setText(holdMs + " мс");
+            }
+        }
+        if (switchGlyphMaxTime != null) {
+            switchGlyphMaxTime.setChecked(mAudioAnalyzer.isEnableMaxHoldTime());
+        }
+        if (containerGlyphMaxTime != null) {
+            containerGlyphMaxTime.setVisibility(mAudioAnalyzer.isEnableMaxHoldTime() ? View.VISIBLE : View.GONE);
+        }
+        if (seekGlyphMaxTime != null) {
+            int maxMs = mAudioAnalyzer.getMaxHoldTimeMs();
+            seekGlyphMaxTime.setProgress(Math.max(0, Math.min(950, maxMs - 50)));
+            if (tvGlyphMaxTimeVal != null) {
+                tvGlyphMaxTimeVal.setText(maxMs + " мс");
+            }
+        }
     }
 
     private void applyAudioPreset(AudioPreset preset) {
@@ -2420,6 +2699,7 @@ public class MainActivity extends Activity {
         updateStudioPatternsUI();
         updateEngineControls();
         updatePresetDropdownUI();
+        updateHoldTimesUI();
         Toast.makeText(this, "Применен пресет: " + preset.name, Toast.LENGTH_SHORT).show();
     }
 

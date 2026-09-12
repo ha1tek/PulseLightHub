@@ -81,10 +81,16 @@ public class PulseAudioService extends Service {
     }
 
     public static void startAutoCalibration(int durationMs, boolean calibGains, boolean calibThresholds,
-                                           boolean calibSens, boolean calibLoudness, boolean calibDecay,
-                                           AudioAnalyzer.CalibrationCallback callback) {
+                                            boolean calibSens, boolean calibLoudness, boolean calibDecay,
+                                            AudioAnalyzer.CalibrationCallback callback) {
+        startAutoCalibration(durationMs, calibGains, calibThresholds, calibSens, calibLoudness, calibDecay, true, callback);
+    }
+
+    public static void startAutoCalibration(int durationMs, boolean calibGains, boolean calibThresholds,
+                                            boolean calibSens, boolean calibLoudness, boolean calibDecay,
+                                            boolean calibMinHold, AudioAnalyzer.CalibrationCallback callback) {
         if (sInstance != null && sInstance.mAnalyzer != null) {
-            sInstance.mAnalyzer.startAutoCalibration(durationMs, calibGains, calibThresholds, calibSens, calibLoudness, calibDecay, callback);
+            sInstance.mAnalyzer.startAutoCalibration(durationMs, calibGains, calibThresholds, calibSens, calibLoudness, calibDecay, calibMinHold, callback);
         }
     }
 
@@ -471,12 +477,26 @@ public class PulseAudioService extends Service {
 
     private void dispatchAnalysisResult(AudioAnalyzer.AnalysisResult result) {
         int colorMode = GlyphColorManager.getColorMode(PulseAudioService.this);
+        boolean isNeo5 = DeviceModelManager.isGtNeo5(PulseAudioService.this);
+
+        int targetMask = result.activeLedMask;
+        if (isNeo5) {
+            targetMask = (targetMask != 0) ? RealmeGlyphDriver.LED_ALL : 0;
+            result.activeLedMask = targetMask;
+        }
 
         boolean isNewFlash = result.isBeat
-                || (mPreviousActiveMask == 0 && result.activeLedMask != 0)
-                || (result.activeLedMask != mPreviousActiveMask && result.activeLedMask != 0);
+                || (mPreviousActiveMask == 0 && targetMask != 0)
+                || (targetMask != mPreviousActiveMask && targetMask != 0);
 
-        if (colorMode == GlyphColorManager.COLOR_MODE_RANDOM) {
+        if (result.isColorCycle) {
+            if (isNeo5) {
+                mCurrentBeatColor = GlyphColorManager.getRandomNeo5Color();
+            } else {
+                mCurrentBeatColor = GlyphColorManager.getNextRainbowColor();
+            }
+            GlyphColorManager.setUnifiedColor(PulseAudioService.this, mCurrentBeatColor);
+        } else if (colorMode == GlyphColorManager.COLOR_MODE_RANDOM) {
             if (isNewFlash) {
                 mCurrentBeatColor = GlyphColorManager.getNextRainbowColor();
             }
@@ -486,9 +506,13 @@ public class PulseAudioService extends Service {
         int currentColor = mCurrentBeatColor;
 
         if (isNewFlash) {
-            RealmeGlyphDriver.flashSegment(result.activeLedMask, currentColor, 0);
-            mPreviousActiveMask = result.activeLedMask;
-        } else if (result.activeLedMask == 0 && mPreviousActiveMask != 0) {
+            RealmeGlyphDriver.flashSegment(targetMask, currentColor, 0);
+            mPreviousActiveMask = targetMask;
+        } else if (result.isColorCycle && (targetMask != 0 || mPreviousActiveMask != 0)) {
+            // Instant live color switch without turning off while burning/holding!
+            int activeMask = (targetMask != 0) ? targetMask : mPreviousActiveMask;
+            RealmeGlyphDriver.flashSegment(activeMask, currentColor, 0);
+        } else if (targetMask == 0 && mPreviousActiveMask != 0) {
             RealmeGlyphDriver.turnOff();
             mPreviousActiveMask = 0;
         }

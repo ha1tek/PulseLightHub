@@ -116,11 +116,18 @@ public class ThemeManager {
     }
 
     public static Drawable createCardDrawable(int cardBgColor, int strokeColor, float radiusDp, Context context) {
+        return createStrokedCardDrawable(cardBgColor, strokeColor, 1.0f, radiusDp, context);
+    }
+
+    public static Drawable createStrokedCardDrawable(int cardBgColor, int strokeColor, float strokeWidthDp, float radiusDp, Context context) {
         GradientDrawable gd = new GradientDrawable();
         gd.setShape(GradientDrawable.RECTANGLE);
         float density = context != null ? context.getResources().getDisplayMetrics().density : 2.5f;
         gd.setCornerRadius(radiusDp * density);
         gd.setColor(cardBgColor);
+        if (strokeColor != 0) {
+            gd.setStroke(Math.max(1, Math.round(strokeWidthDp * density)), strokeColor);
+        }
         return gd;
     }
 

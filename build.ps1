@@ -53,22 +53,26 @@ if ($LASTEXITCODE -ne 0) { throw "apksigner failed" }
 Write-Host "--- 8. Installing APK on device ($device) ---"
 & $adb connect $device
 Start-Sleep -Milliseconds 600
-& $adb -s $device install -r "$projectDir\build\PulseLightHub.apk"
-if ($LASTEXITCODE -ne 0) { throw "adb install failed" }
+$devicesList = (& $adb devices | Out-String)
+if ($devicesList -match [regex]::Escape($device) -or $devicesList -match "\bdevice\b") {
+    & $adb -s $device install -r "$projectDir\build\PulseLightHub.apk"
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "--- 9. Granting Audio & Media Permissions ---"
+        & $adb -s $device shell pm grant com.antigravity.pulselight android.permission.RECORD_AUDIO
+        & $adb -s $device shell pm grant com.antigravity.pulselight android.permission.POST_NOTIFICATIONS
+        & $adb -s $device shell appops set com.antigravity.pulselight PROJECT_MEDIA allow
+        & $adb -s $device shell settings put global customize_breath_light_time 00002359
+        & $adb -s $device shell settings put global customize_breath_light_master_switch 1
+        & $adb -s $device shell settings put global oplus_breath_light_master_switch 1
+        & $adb -s $device shell settings put global customize_breath_light_flip_switch 0
 
-Write-Host "--- 9. Granting Audio & Media Permissions ---"
-& $adb -s $device shell pm grant com.antigravity.pulselight android.permission.RECORD_AUDIO
-& $adb -s $device shell pm grant com.antigravity.pulselight android.permission.POST_NOTIFICATIONS
-& $adb -s $device shell appops set com.antigravity.pulselight PROJECT_MEDIA allow
-& $adb -s $device shell settings put global customize_breath_light_time 00002359
-& $adb -s $device shell settings put global customize_breath_light_master_switch 1
-& $adb -s $device shell settings put global oplus_breath_light_master_switch 1
-& $adb -s $device shell settings put global customize_breath_light_flip_switch 0
+        Write-Host "--- 10. Native Driver: Direct Binder IPC (No Daemon required) ---"
+        Write-Host "--- 11. Launching MainActivity ---"
+        & $adb -s $device shell am force-stop com.antigravity.pulselight
+        & $adb -s $device shell am start -n com.antigravity.pulselight/.MainActivity --windowingMode 1
+    }
+} else {
+    Write-Warning "Устройство $device не подключено по ADB. APK успешно собран и подписан: $projectDir\build\PulseLightHub.apk"
+}
 
-Write-Host "--- 10. Native Driver: Direct Binder IPC (No Daemon required) ---"
-
-Write-Host "--- 11. Launching MainActivity ---"
-& $adb -s $device shell am force-stop com.antigravity.pulselight
-& $adb -s $device shell am start -n com.antigravity.pulselight/.MainActivity --windowingMode 1
-
-Write-Host "=== Build & Installation Finished Successfully! ==="
+Write-Host "=== Build Finished Successfully! ==="

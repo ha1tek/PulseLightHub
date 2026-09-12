@@ -12,12 +12,20 @@ public class AudioPresetManager {
     private static final String PREFS_NAME = "pulse_audio_presets";
     private static final String KEY_USER_PRESETS = "user_presets_json";
     private static final String KEY_ACTIVE_PRESET_ID = "active_preset_id";
+    private static final String KEY_ACTIVE_PRESET_ID_GT5 = "active_preset_id_gt5";
+    private static final String KEY_ACTIVE_PRESET_ID_NEO5 = "active_preset_id_neo5";
 
     public static final String PRESET_STUDIO_PRO_ID = "studio_pro";
     public static final String PRESET_NOTHING_PURE_ID = "nothing_pure";
     public static final String PRESET_PHONK_808_ID = "phonk_808";
     public static final String PRESET_ROCK_DRUMS_ID = "rock_drums";
     public static final String PRESET_EDM_CLUB_ID = "edm_club";
+
+    public static final String PRESET_NEO5_BASS_SNARE_ID = "neo5_bass_snare";
+    public static final String PRESET_NEO5_BASS_HIHAT_ID = "neo5_bass_hihat";
+    public static final String PRESET_NEO5_FULL_DRIVE_ID = "neo5_full_drive";
+    public static final String PRESET_NEO5_NEON_CHAOS_ID = "neo5_neon_chaos";
+    public static final String PRESET_NEO5_MINIMAL_BASS_ID = "neo5_minimal_bass";
 
     public static AudioPreset createStudioProPreset() {
         AudioPreset p = new AudioPreset(PRESET_STUDIO_PRO_ID, "Студийный Pro", true);
@@ -134,13 +142,128 @@ public class AudioPresetManager {
         return p;
     }
 
+    public static AudioPreset createNeo5BassSnarePreset() {
+        AudioPreset p = new AudioPreset(PRESET_NEO5_BASS_SNARE_ID, "Бас + Смена на Снейр", true, DeviceModelManager.MODEL_GT_NEO_5);
+        p.fftSize = 1024;
+        p.useTukeyWindow = false;
+        p.triggerMode = AudioAnalyzer.MODE_CUSTOM_PATTERN;
+        p.patternIndex = AudioAnalyzer.PATTERN_ALL;
+        p.spectrumMode = AudioAnalyzer.SPECTRUM_MODE_NARROW;
+        p.studioAnalysisMode = AudioAnalyzer.STUDIO_MODE_FAST;
+        p.sensitivity = 1.35f;
+        p.decayMs = 65;
+        p.enableOnset = true;
+        p.enableLoudnessGate = false;
+        p.narrowGains = new float[]{1.3f, 1.4f, 1.2f, 1.0f};
+        p.narrowThresholds = new float[]{0.14f, 0.14f, 0.12f, 0.15f};
+        p.narrowPatterns = new int[]{AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_COLOR_CYCLE, AudioAnalyzer.PATTERN_OFF};
+        p.narrowEnabled = new boolean[]{true, true, true, false};
+        return p;
+    }
+
+    public static AudioPreset createNeo5BassHihatPreset() {
+        AudioPreset p = new AudioPreset(PRESET_NEO5_BASS_HIHAT_ID, "Бас + Смена на Хэты", true, DeviceModelManager.MODEL_GT_NEO_5);
+        p.fftSize = 1024;
+        p.useTukeyWindow = false;
+        p.triggerMode = AudioAnalyzer.MODE_CUSTOM_PATTERN;
+        p.patternIndex = AudioAnalyzer.PATTERN_ALL;
+        p.spectrumMode = AudioAnalyzer.SPECTRUM_MODE_NARROW;
+        p.studioAnalysisMode = AudioAnalyzer.STUDIO_MODE_FAST;
+        p.sensitivity = 1.40f;
+        p.decayMs = 55;
+        p.enableOnset = true;
+        p.enableLoudnessGate = false;
+        p.narrowGains = new float[]{1.2f, 1.3f, 1.2f, 1.4f};
+        p.narrowThresholds = new float[]{0.14f, 0.14f, 0.13f, 0.10f};
+        p.narrowPatterns = new int[]{AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_COLOR_CYCLE};
+        p.narrowEnabled = new boolean[]{true, true, true, true};
+        return p;
+    }
+
+    public static AudioPreset createNeo5FullDrivePreset() {
+        AudioPreset p = new AudioPreset(PRESET_NEO5_FULL_DRIVE_ID, "Полный драйв", true, DeviceModelManager.MODEL_GT_NEO_5);
+        p.fftSize = 2048;
+        p.useTukeyWindow = true;
+        p.triggerMode = AudioAnalyzer.MODE_CUSTOM_PATTERN;
+        p.patternIndex = AudioAnalyzer.PATTERN_ALL;
+        p.spectrumMode = AudioAnalyzer.SPECTRUM_MODE_WIDE;
+        p.studioAnalysisMode = AudioAnalyzer.STUDIO_MODE_DEEP;
+        p.sensitivity = 1.45f;
+        p.decayMs = 70;
+        p.enableOnset = true;
+        p.enableLimiter = true;
+        p.enableLoudnessGate = true;
+        p.loudnessGateThreshold = 0.07f;
+        p.wideGains = new float[]{1.4f, 1.4f, 1.3f, 1.3f, 1.2f, 1.2f, 1.1f, 1.1f, 1.1f, 1.0f, 1.0f, 1.0f};
+        p.wideThresholds = new float[]{0.11f, 0.11f, 0.11f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.13f, 0.13f, 0.13f, 0.13f};
+        p.widePatterns = new int[]{
+                AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_FLASH_AND_COLOR_CYCLE,
+                AudioAnalyzer.PATTERN_FLASH_AND_COLOR_CYCLE, AudioAnalyzer.PATTERN_FLASH_AND_COLOR_CYCLE, AudioAnalyzer.PATTERN_FLASH_AND_COLOR_CYCLE, AudioAnalyzer.PATTERN_COLOR_CYCLE,
+                AudioAnalyzer.PATTERN_COLOR_CYCLE, AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_ALL
+        };
+        p.wideEnabled = new boolean[]{true, true, true, true, true, true, true, true, true, true, true, true};
+        return p;
+    }
+
+    public static AudioPreset createNeo5NeonChaosPreset() {
+        AudioPreset p = new AudioPreset(PRESET_NEO5_NEON_CHAOS_ID, "Неоновый хаос", true, DeviceModelManager.MODEL_GT_NEO_5);
+        p.fftSize = 1024;
+        p.useTukeyWindow = false;
+        p.triggerMode = AudioAnalyzer.MODE_CUSTOM_PATTERN;
+        p.patternIndex = AudioAnalyzer.PATTERN_ALL;
+        p.spectrumMode = AudioAnalyzer.SPECTRUM_MODE_NARROW;
+        p.studioAnalysisMode = AudioAnalyzer.STUDIO_MODE_FAST;
+        p.sensitivity = 1.50f;
+        p.decayMs = 50;
+        p.enableOnset = true;
+        p.enableLoudnessGate = false;
+        p.narrowGains = new float[]{1.3f, 1.4f, 1.4f, 1.2f};
+        p.narrowThresholds = new float[]{0.11f, 0.11f, 0.10f, 0.12f};
+        p.narrowPatterns = new int[]{AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_FLASH_AND_COLOR_CYCLE, AudioAnalyzer.PATTERN_COLOR_CYCLE};
+        p.narrowEnabled = new boolean[]{true, true, true, true};
+        return p;
+    }
+
+    public static AudioPreset createNeo5MinimalBassPreset() {
+        AudioPreset p = new AudioPreset(PRESET_NEO5_MINIMAL_BASS_ID, "Минимал бас", true, DeviceModelManager.MODEL_GT_NEO_5);
+        p.fftSize = 2048;
+        p.useTukeyWindow = true;
+        p.triggerMode = AudioAnalyzer.MODE_CUSTOM_PATTERN;
+        p.patternIndex = AudioAnalyzer.PATTERN_ALL;
+        p.spectrumMode = AudioAnalyzer.SPECTRUM_MODE_NARROW;
+        p.studioAnalysisMode = AudioAnalyzer.STUDIO_MODE_FAST;
+        p.sensitivity = 1.20f;
+        p.decayMs = 110;
+        p.enableOnset = true;
+        p.enableLoudnessGate = true;
+        p.loudnessGateThreshold = 0.12f;
+        p.narrowGains = new float[]{1.5f, 1.6f, 1.0f, 1.0f};
+        p.narrowThresholds = new float[]{0.18f, 0.18f, 0.20f, 0.20f};
+        p.narrowPatterns = new int[]{AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_OFF, AudioAnalyzer.PATTERN_OFF};
+        p.narrowEnabled = new boolean[]{true, true, false, false};
+        return p;
+    }
+
     public static List<AudioPreset> getAllPresets(Context context) {
+        int model = (context != null) ? DeviceModelManager.getDeviceModel(context) : DeviceModelManager.MODEL_GT_5;
+        return getAllPresets(context, model);
+    }
+
+    public static List<AudioPreset> getAllPresets(Context context, int deviceModel) {
         List<AudioPreset> list = new ArrayList<>();
-        list.add(createStudioProPreset());
-        list.add(createNothingPurePreset());
-        list.add(createPhonk808Preset());
-        list.add(createRockDrumsPreset());
-        list.add(createEdmClubPreset());
+        if (deviceModel == DeviceModelManager.MODEL_GT_NEO_5) {
+            list.add(createNeo5BassSnarePreset());
+            list.add(createNeo5BassHihatPreset());
+            list.add(createNeo5FullDrivePreset());
+            list.add(createNeo5NeonChaosPreset());
+            list.add(createNeo5MinimalBassPreset());
+        } else {
+            list.add(createStudioProPreset());
+            list.add(createNothingPurePreset());
+            list.add(createPhonk808Preset());
+            list.add(createRockDrumsPreset());
+            list.add(createEdmClubPreset());
+        }
 
         if (context != null) {
             SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
@@ -152,7 +275,9 @@ public class AudioPresetManager {
                         JSONObject o = arr.getJSONObject(i);
                         AudioPreset p = AudioPreset.fromJson(o);
                         p.isBuiltIn = false;
-                        list.add(p);
+                        if (p.deviceModel == deviceModel) {
+                            list.add(p);
+                        }
                     }
                 } catch (Throwable ignored) {}
             }
@@ -161,12 +286,30 @@ public class AudioPresetManager {
     }
 
     public static AudioPreset getPresetById(Context context, String id) {
-        if (id == null) return createStudioProPreset();
+        if (id == null) {
+            boolean isNeo5 = (context != null) && DeviceModelManager.isGtNeo5(context);
+            return isNeo5 ? createNeo5BassSnarePreset() : createStudioProPreset();
+        }
         if ("ue5_blueprint".equals(id)) return createStudioProPreset();
-        for (AudioPreset p : getAllPresets(context)) {
+
+        if (PRESET_NEO5_BASS_SNARE_ID.equals(id)) return createNeo5BassSnarePreset();
+        if (PRESET_NEO5_BASS_HIHAT_ID.equals(id)) return createNeo5BassHihatPreset();
+        if (PRESET_NEO5_FULL_DRIVE_ID.equals(id)) return createNeo5FullDrivePreset();
+        if (PRESET_NEO5_NEON_CHAOS_ID.equals(id)) return createNeo5NeonChaosPreset();
+        if (PRESET_NEO5_MINIMAL_BASS_ID.equals(id)) return createNeo5MinimalBassPreset();
+
+        if (PRESET_STUDIO_PRO_ID.equals(id)) return createStudioProPreset();
+        if (PRESET_NOTHING_PURE_ID.equals(id)) return createNothingPurePreset();
+        if (PRESET_PHONK_808_ID.equals(id)) return createPhonk808Preset();
+        if (PRESET_ROCK_DRUMS_ID.equals(id)) return createRockDrumsPreset();
+        if (PRESET_EDM_CLUB_ID.equals(id)) return createEdmClubPreset();
+
+        for (AudioPreset p : getUserPresets(context)) {
             if (id.equals(p.id)) return p;
         }
-        return createStudioProPreset();
+
+        boolean isNeo5 = (context != null) && DeviceModelManager.isGtNeo5(context);
+        return isNeo5 ? createNeo5BassSnarePreset() : createStudioProPreset();
     }
 
     public static void saveUserPreset(Context context, AudioPreset newPreset) {
@@ -229,19 +372,48 @@ public class AudioPresetManager {
 
     public static String getActivePresetId(Context context) {
         if (context == null) return PRESET_STUDIO_PRO_ID;
-        String id = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                .getString(KEY_ACTIVE_PRESET_ID, PRESET_STUDIO_PRO_ID);
-        if ("ue5_blueprint".equals(id)) {
-            id = PRESET_STUDIO_PRO_ID;
-            setActivePresetId(context, id);
+        int model = DeviceModelManager.getDeviceModel(context);
+        return getActivePresetId(context, model);
+    }
+
+    public static String getActivePresetId(Context context, int deviceModel) {
+        if (context == null) return (deviceModel == DeviceModelManager.MODEL_GT_NEO_5) ? PRESET_NEO5_BASS_SNARE_ID : PRESET_STUDIO_PRO_ID;
+        SharedPreferences sp = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        if (deviceModel == DeviceModelManager.MODEL_GT_NEO_5) {
+            return sp.getString(KEY_ACTIVE_PRESET_ID_NEO5, PRESET_NEO5_BASS_SNARE_ID);
+        } else {
+            String id = sp.getString(KEY_ACTIVE_PRESET_ID_GT5, null);
+            if (id == null) {
+                id = sp.getString(KEY_ACTIVE_PRESET_ID, PRESET_STUDIO_PRO_ID);
+            }
+            if ("ue5_blueprint".equals(id)) {
+                id = PRESET_STUDIO_PRO_ID;
+            }
+            return id;
         }
-        return id;
     }
 
     public static void setActivePresetId(Context context, String id) {
+        if (context == null || id == null) return;
+        int model = DeviceModelManager.getDeviceModel(context);
+        if (id.startsWith("neo5_")) {
+            model = DeviceModelManager.MODEL_GT_NEO_5;
+        } else if (id.equals(PRESET_STUDIO_PRO_ID) || id.equals(PRESET_NOTHING_PURE_ID) || id.equals(PRESET_PHONK_808_ID) || id.equals(PRESET_ROCK_DRUMS_ID) || id.equals(PRESET_EDM_CLUB_ID)) {
+            model = DeviceModelManager.MODEL_GT_5;
+        }
+        setActivePresetId(context, id, model);
+    }
+
+    public static void setActivePresetId(Context context, String id, int deviceModel) {
         if (context == null) return;
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                .edit().putString(KEY_ACTIVE_PRESET_ID, id).apply();
+        SharedPreferences.Editor ed = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit();
+        if (deviceModel == DeviceModelManager.MODEL_GT_NEO_5) {
+            ed.putString(KEY_ACTIVE_PRESET_ID_NEO5, id);
+        } else {
+            ed.putString(KEY_ACTIVE_PRESET_ID_GT5, id);
+            ed.putString(KEY_ACTIVE_PRESET_ID, id);
+        }
+        ed.apply();
     }
 
     public static String exportPresetToJson(AudioPreset preset) {

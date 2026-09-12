@@ -62,6 +62,7 @@ public class RealmeGlyphView extends View {
     private Paint mHaloCorePaint;
     private Paint mWhiteCorePaint;
     private Paint mBracketPaint;
+    private Paint mNfcCoilPaint;
 
     // Geometry
     private final RectF mCardBounds = new RectF();
@@ -76,6 +77,11 @@ public class RealmeGlyphView extends View {
     private final Path mPathB = new Path(); // Right bar
     private final Path mPathC = new Path(); // Bottom bracket
     private final Path mPathD = new Path(); // Left bar
+    private final Path mPathNeo5 = new Path(); // GT Neo 5 continuous vertical Awakening Halo
+    private final Path mSnapdragonPath = new Path();
+
+    private int mDeviceModel = DeviceModelManager.MODEL_GT_5;
+    private boolean mIsMiniPreview = false;
 
     private int mActiveTouchSegment = 0;
     private Vibrator mVibrator;
@@ -159,6 +165,11 @@ public class RealmeGlyphView extends View {
         mWhiteCorePaint.setStrokeJoin(Paint.Join.ROUND);
         mWhiteCorePaint.setColor(Color.WHITE);
 
+        mNfcCoilPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        mNfcCoilPaint.setStyle(Paint.Style.STROKE);
+        mNfcCoilPaint.setStrokeWidth(1.2f);
+        mNfcCoilPaint.setColor(Color.parseColor("#181E29"));
+
         updateColorsFromManager();
     }
 
@@ -187,6 +198,48 @@ public class RealmeGlyphView extends View {
         mAlwaysOnState = on;
         mRestingIntensity = on ? 0.85f : 0.0f;
         fadeSegmentToResting(RealmeGlyphDriver.LED_ALL, 350);
+    }
+
+    public void setDeviceModel(int model) {
+        setDeviceModel(model, false);
+    }
+
+    public void setDeviceModel(int model, boolean isMiniPreview) {
+        mDeviceModel = model;
+        mIsMiniPreview = isMiniPreview;
+        if (isMiniPreview) {
+            mRestingIntensity = 0.85f;
+            mIntensityA = 0.85f;
+            mIntensityB = 0.85f;
+            mIntensityC = 0.85f;
+            mIntensityD = 0.85f;
+        }
+        if (getWidth() > 0 && getHeight() > 0) {
+            buildRealmeGeometry(getWidth(), getHeight());
+        }
+        postInvalidate();
+    }
+
+    public int getDeviceModel() {
+        return mDeviceModel;
+    }
+
+    /**
+     * Updates mini preview appearance based on app theme accent color and active selection state.
+     */
+    public void setMiniPreviewTheme(int accentColor, boolean isActive) {
+        mColorA = accentColor;
+        mColorB = accentColor;
+        mColorC = accentColor;
+        mColorD = accentColor;
+        cancelSegmentAnim(RealmeGlyphDriver.LED_ALL);
+        float intensity = isActive ? 0.95f : 0.40f;
+        mRestingIntensity = intensity;
+        mIntensityA = intensity;
+        mIntensityB = intensity;
+        mIntensityC = intensity;
+        mIntensityD = intensity;
+        postInvalidate();
     }
 
     /**
@@ -368,69 +421,108 @@ public class RealmeGlyphView extends View {
         float cx = width / 2.0f;
         float cy = height / 2.0f;
 
-        // Proportional GT 5 transparent camera window (approx 1.55:1 aspect ratio)
-        float cardWidth = Math.min(width * 0.88f, (height - 16f) * 1.55f);
-        float cardHeight = cardWidth / 1.55f;
+        if (mDeviceModel == DeviceModelManager.MODEL_GT_NEO_5) {
+            // GT Neo 5 camera glass window is squarish (aspect ratio approx 1.10:1)
+            float cardHeight = Math.min(height - 8f, (width * 0.94f) / 1.10f);
+            float cardWidth = cardHeight * 1.10f;
+            mCardBounds.set(cx - cardWidth / 2.0f, cy - cardHeight / 2.0f, cx + cardWidth / 2.0f, cy + cardHeight / 2.0f);
 
-        mCardBounds.set(cx - cardWidth / 2.0f, cy - cardHeight / 2.0f, cx + cardWidth / 2.0f, cy + cardHeight / 2.0f);
+            // GT Neo 5 Awakening Halo: narrow vertical rectangle with 4 rounded corners and left cut
+            float haloH = cardHeight * 0.86f;
+            float haloW = haloH * 0.60f;
 
-        // Halo sits neatly centered inside the transparent window with breathing padding
-        float padX = cardWidth * 0.11f;
-        float padY = cardHeight * 0.12f;
+            mHaloLeft = cx - haloW / 2.0f;
+            mHaloRight = cx + haloW / 2.0f;
+            mHaloTop = cy - haloH / 2.0f;
+            mHaloBottom = cy + haloH / 2.0f;
 
-        mHaloLeft = mCardBounds.left + padX;
-        mHaloTop = mCardBounds.top + padY;
-        mHaloRight = mCardBounds.right - padX;
-        mHaloBottom = mCardBounds.bottom - padY;
+            mCornerRadius = haloW * 0.24f; // 4 rounded corners
+            mTubeStroke = Math.max(3.5f, haloH * 0.058f);
 
-        float haloH = mHaloBottom - mHaloTop;
+            mTrackOffPaint.setStrokeWidth(mTubeStroke);
+            mHaloCorePaint.setStrokeWidth(mTubeStroke);
+            mHaloGlowPaint.setStrokeWidth(mTubeStroke * 2.3f);
+            mWhiteCorePaint.setStrokeWidth(mTubeStroke * 0.35f);
 
-        // Snapdragon chipset badge in the center of the halo
-        float badgeSize = haloH * 0.52f;
-        mChipBadge.set(cx - badgeSize / 2.0f, cy - badgeSize / 2.0f, cx + badgeSize / 2.0f, cy + badgeSize / 2.0f);
+            // C-shaped Awakening Halo with 4 rounded corners and opening/cut on left side
+            mPathNeo5.reset();
+            float stubLen = haloH * 0.12f;
+            mPathNeo5.moveTo(mHaloLeft, mHaloTop + mCornerRadius + stubLen);
+            mPathNeo5.lineTo(mHaloLeft, mHaloTop + mCornerRadius);
+            mPathNeo5.arcTo(new RectF(mHaloLeft, mHaloTop, mHaloLeft + 2 * mCornerRadius, mHaloTop + 2 * mCornerRadius), 180, 90, false);
+            mPathNeo5.lineTo(mHaloRight - mCornerRadius, mHaloTop);
+            mPathNeo5.arcTo(new RectF(mHaloRight - 2 * mCornerRadius, mHaloTop, mHaloRight, mHaloTop + 2 * mCornerRadius), 270, 90, false);
+            mPathNeo5.lineTo(mHaloRight, mHaloBottom - mCornerRadius);
+            mPathNeo5.arcTo(new RectF(mHaloRight - 2 * mCornerRadius, mHaloBottom - 2 * mCornerRadius, mHaloRight, mHaloBottom), 0, 90, false);
+            mPathNeo5.lineTo(mHaloLeft + mCornerRadius, mHaloBottom);
+            mPathNeo5.arcTo(new RectF(mHaloLeft, mHaloBottom - 2 * mCornerRadius, mHaloLeft + 2 * mCornerRadius, mHaloBottom), 90, 90, false);
+            mPathNeo5.lineTo(mHaloLeft, mHaloBottom - mCornerRadius - stubLen);
 
-        float flameR = badgeSize * 0.28f;
-        mSnapdragonFlame.set(cx - flameR, cy - flameR, cx + flameR, cy + flameR);
+        } else {
+            // Proportional GT 5 transparent camera window (approx 1.55:1 aspect ratio)
+            float cardWidth = Math.min(width * 0.88f, (height - 16f) * 1.55f);
+            float cardHeight = cardWidth / 1.55f;
 
-        // LED light tube stroke and corner radius
-        mTubeStroke = haloH * 0.075f;
-        mTrackOffPaint.setStrokeWidth(mTubeStroke);
-        mHaloCorePaint.setStrokeWidth(mTubeStroke);
-        mHaloGlowPaint.setStrokeWidth(mTubeStroke * 2.5f);
-        mWhiteCorePaint.setStrokeWidth(mTubeStroke * 0.35f);
+            mCardBounds.set(cx - cardWidth / 2.0f, cy - cardHeight / 2.0f, cx + cardWidth / 2.0f, cy + cardHeight / 2.0f);
 
-        mCornerRadius = haloH * 0.18f;
-        mGap = haloH * 0.08f;
+            // Halo sits neatly centered inside the transparent window with breathing padding
+            float padX = cardWidth * 0.11f;
+            float padY = cardHeight * 0.12f;
 
-        // 1. TOP SEGMENT A (Inverted U bracket: Left curve, Top bar, Right curve)
-        mPathA.reset();
-        mPathA.moveTo(mHaloLeft, mHaloTop + mCornerRadius);
-        mPathA.arcTo(new RectF(mHaloLeft, mHaloTop, mHaloLeft + 2 * mCornerRadius, mHaloTop + 2 * mCornerRadius), 180, 90, false);
-        mPathA.lineTo(mHaloRight - mCornerRadius, mHaloTop);
-        mPathA.arcTo(new RectF(mHaloRight - 2 * mCornerRadius, mHaloTop, mHaloRight, mHaloTop + 2 * mCornerRadius), 270, 90, false);
-        mPathA.lineTo(mHaloRight, mHaloTop + mCornerRadius);
+            mHaloLeft = mCardBounds.left + padX;
+            mHaloTop = mCardBounds.top + padY;
+            mHaloRight = mCardBounds.right - padX;
+            mHaloBottom = mCardBounds.bottom - padY;
 
-        // 2. BOTTOM SEGMENT C (U bracket: Left curve, Bottom bar, Right curve)
-        mPathC.reset();
-        mPathC.moveTo(mHaloLeft, mHaloBottom - mCornerRadius);
-        mPathC.arcTo(new RectF(mHaloLeft, mHaloBottom - 2 * mCornerRadius, mHaloLeft + 2 * mCornerRadius, mHaloBottom), 180, -90, false);
-        mPathC.lineTo(mHaloRight - mCornerRadius, mHaloBottom);
-        mPathC.arcTo(new RectF(mHaloRight - 2 * mCornerRadius, mHaloBottom - 2 * mCornerRadius, mHaloRight, mHaloBottom), 90, -90, false);
-        mPathC.lineTo(mHaloRight, mHaloBottom - mCornerRadius);
+            float haloH = mHaloBottom - mHaloTop;
 
-        // 3. LEFT SEGMENT D (Straight vertical bar)
-        float leftBarTop = mHaloTop + mCornerRadius + mGap;
-        float leftBarBottom = mHaloBottom - mCornerRadius - mGap;
-        mPathD.reset();
-        mPathD.moveTo(mHaloLeft, leftBarTop);
-        mPathD.lineTo(mHaloLeft, leftBarBottom);
+            // Snapdragon chipset badge in the center of the halo
+            float badgeSize = haloH * 0.52f;
+            mChipBadge.set(cx - badgeSize / 2.0f, cy - badgeSize / 2.0f, cx + badgeSize / 2.0f, cy + badgeSize / 2.0f);
 
-        // 4. RIGHT SEGMENT B (Straight vertical bar)
-        float rightBarTop = mHaloTop + mCornerRadius + mGap;
-        float rightBarBottom = mHaloBottom - mCornerRadius - mGap;
-        mPathB.reset();
-        mPathB.moveTo(mHaloRight, rightBarTop);
-        mPathB.lineTo(mHaloRight, rightBarBottom);
+            float flameR = badgeSize * 0.28f;
+            mSnapdragonFlame.set(cx - flameR, cy - flameR, cx + flameR, cy + flameR);
+
+            // LED light tube stroke and corner radius
+            mTubeStroke = haloH * 0.075f;
+            mTrackOffPaint.setStrokeWidth(mTubeStroke);
+            mHaloCorePaint.setStrokeWidth(mTubeStroke);
+            mHaloGlowPaint.setStrokeWidth(mTubeStroke * 2.5f);
+            mWhiteCorePaint.setStrokeWidth(mTubeStroke * 0.35f);
+
+            mCornerRadius = haloH * 0.18f;
+            mGap = haloH * 0.08f;
+
+            // 1. TOP SEGMENT A (Inverted U bracket: Left curve, Top bar, Right curve)
+            mPathA.reset();
+            mPathA.moveTo(mHaloLeft, mHaloTop + mCornerRadius);
+            mPathA.arcTo(new RectF(mHaloLeft, mHaloTop, mHaloLeft + 2 * mCornerRadius, mHaloTop + 2 * mCornerRadius), 180, 90, false);
+            mPathA.lineTo(mHaloRight - mCornerRadius, mHaloTop);
+            mPathA.arcTo(new RectF(mHaloRight - 2 * mCornerRadius, mHaloTop, mHaloRight, mHaloTop + 2 * mCornerRadius), 270, 90, false);
+            mPathA.lineTo(mHaloRight, mHaloTop + mCornerRadius);
+
+            // 2. BOTTOM SEGMENT C (U bracket: Left curve, Bottom bar, Right curve)
+            mPathC.reset();
+            mPathC.moveTo(mHaloLeft, mHaloBottom - mCornerRadius);
+            mPathC.arcTo(new RectF(mHaloLeft, mHaloBottom - 2 * mCornerRadius, mHaloLeft + 2 * mCornerRadius, mHaloBottom), 180, -90, false);
+            mPathC.lineTo(mHaloRight - mCornerRadius, mHaloBottom);
+            mPathC.arcTo(new RectF(mHaloRight - 2 * mCornerRadius, mHaloBottom - 2 * mCornerRadius, mHaloRight, mHaloBottom), 90, -90, false);
+            mPathC.lineTo(mHaloRight, mHaloBottom - mCornerRadius);
+
+            // 3. LEFT SEGMENT D (Straight vertical bar)
+            float leftBarTop = mHaloTop + mCornerRadius + mGap;
+            float leftBarBottom = mHaloBottom - mCornerRadius - mGap;
+            mPathD.reset();
+            mPathD.moveTo(mHaloLeft, leftBarTop);
+            mPathD.lineTo(mHaloLeft, leftBarBottom);
+
+            // 4. RIGHT SEGMENT B (Straight vertical bar)
+            float rightBarTop = mHaloTop + mCornerRadius + mGap;
+            float rightBarBottom = mHaloBottom - mCornerRadius - mGap;
+            mPathB.reset();
+            mPathB.moveTo(mHaloRight, rightBarTop);
+            mPathB.lineTo(mHaloRight, rightBarBottom);
+        }
     }
 
     @Override
@@ -443,24 +535,46 @@ public class RealmeGlyphView extends View {
         canvas.drawRoundRect(mCardBounds, 24f, 24f, mChassisBgPaint);
         canvas.drawRoundRect(mCardBounds, 24f, 24f, mChassisBorderPaint);
 
-        // 6. Realistic Unlit LED Diffuser Tracks (always visible at base)
-        canvas.drawPath(mPathA, mTrackOffPaint);
-        canvas.drawPath(mPathB, mTrackOffPaint);
-        canvas.drawPath(mPathC, mTrackOffPaint);
-        canvas.drawPath(mPathD, mTrackOffPaint);
+        if (mDeviceModel == DeviceModelManager.MODEL_GT_NEO_5) {
+            // 2. NFC coil concentric rounded rectangles on glass (subtle)
+            float density = getResources().getDisplayMetrics().density;
+            for (int i = 1; i <= 2; i++) {
+                float offset = i * (8f * density);
+                RectF nfcRect = new RectF(mHaloLeft - offset, mHaloTop - offset, mHaloRight + offset, mHaloBottom + offset);
+                if (mCardBounds.contains(nfcRect.left + 2f, nfcRect.top + 2f) &&
+                    mCardBounds.contains(nfcRect.right - 2f, nfcRect.bottom - 2f)) {
+                    canvas.drawRoundRect(nfcRect, mCornerRadius + offset * 0.4f, mCornerRadius + offset * 0.4f, mNfcCoilPaint);
+                }
+            }
 
-        // 7. Hardware clamp brackets at 4 segment gaps
-        float halfGap = mGap * 0.5f;
-        drawGapBracket(canvas, mHaloLeft, mHaloTop + mCornerRadius + halfGap);
-        drawGapBracket(canvas, mHaloLeft, mHaloBottom - mCornerRadius - halfGap);
-        drawGapBracket(canvas, mHaloRight, mHaloTop + mCornerRadius + halfGap);
-        drawGapBracket(canvas, mHaloRight, mHaloBottom - mCornerRadius - halfGap);
+            // Clean minimal interior: no flame, no text
 
-        // 8. Lit Glowing Neon Segments
-        drawSegmentGlow(canvas, mPathA, mColorA, mIntensityA);
-        drawSegmentGlow(canvas, mPathB, mColorB, mIntensityB);
-        drawSegmentGlow(canvas, mPathC, mColorC, mIntensityC);
-        drawSegmentGlow(canvas, mPathD, mColorD, mIntensityD);
+            // 3. GT Neo 5 unlit diffuser track (C-shaped with 4 rounded corners and left cut)
+            canvas.drawPath(mPathNeo5, mTrackOffPaint);
+
+            // 4. GT Neo 5 lit glowing halo
+            float neoIntensity = Math.max(mIntensityA, Math.max(mIntensityB, Math.max(mIntensityC, mIntensityD)));
+            drawSegmentGlow(canvas, mPathNeo5, mColorA, neoIntensity);
+        } else {
+            // 6. Realistic Unlit LED Diffuser Tracks (always visible at base)
+            canvas.drawPath(mPathA, mTrackOffPaint);
+            canvas.drawPath(mPathB, mTrackOffPaint);
+            canvas.drawPath(mPathC, mTrackOffPaint);
+            canvas.drawPath(mPathD, mTrackOffPaint);
+
+            // 7. Hardware clamp brackets at 4 segment gaps
+            float halfGap = mGap * 0.5f;
+            drawGapBracket(canvas, mHaloLeft, mHaloTop + mCornerRadius + halfGap);
+            drawGapBracket(canvas, mHaloLeft, mHaloBottom - mCornerRadius - halfGap);
+            drawGapBracket(canvas, mHaloRight, mHaloTop + mCornerRadius + halfGap);
+            drawGapBracket(canvas, mHaloRight, mHaloBottom - mCornerRadius - halfGap);
+
+            // 8. Lit Glowing Neon Segments
+            drawSegmentGlow(canvas, mPathA, mColorA, mIntensityA);
+            drawSegmentGlow(canvas, mPathB, mColorB, mIntensityB);
+            drawSegmentGlow(canvas, mPathC, mColorC, mIntensityC);
+            drawSegmentGlow(canvas, mPathD, mColorD, mIntensityD);
+        }
     }
 
     private void drawGapBracket(Canvas canvas, float cx, float cy) {
@@ -493,6 +607,10 @@ public class RealmeGlyphView extends View {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
+        if (mIsMiniPreview) {
+            return false;
+        }
+
         float x = event.getX();
         float y = event.getY();
 
@@ -543,6 +661,10 @@ public class RealmeGlyphView extends View {
 
     private int hitTest(float x, float y) {
         if (!mCardBounds.contains(x, y)) return 0;
+
+        if (mDeviceModel == DeviceModelManager.MODEL_GT_NEO_5) {
+            return RealmeGlyphDriver.LED_ALL;
+        }
 
         float haloH = mHaloBottom - mHaloTop;
         float haloW = mHaloRight - mHaloLeft;

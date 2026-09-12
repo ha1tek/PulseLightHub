@@ -273,6 +273,12 @@ public class RealmeGlyphDriver {
             sAutoStopRunnable = null;
         }
 
+        if (sAppContext != null && DeviceModelManager.isGtNeo5(sAppContext)) {
+            if (ledsMask != 0) {
+                ledsMask = LED_ALL;
+            }
+        }
+
         int hwColor = getHardwareColorForRgb(color, ledsMask);
         int r = (color >> 16) & 0xFF;
         int g = (color >> 8) & 0xFF;

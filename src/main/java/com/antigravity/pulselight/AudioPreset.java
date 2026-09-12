@@ -61,12 +61,19 @@ public class AudioPreset {
             AudioAnalyzer.PATTERN_ALL            // 16 kHz
     };
 
+    public int deviceModel = DeviceModelManager.MODEL_GT_5;
+
     public AudioPreset() {}
 
     public AudioPreset(String id, String name, boolean isBuiltIn) {
+        this(id, name, isBuiltIn, DeviceModelManager.MODEL_GT_5);
+    }
+
+    public AudioPreset(String id, String name, boolean isBuiltIn, int deviceModel) {
         this.id = id;
         this.name = name;
         this.isBuiltIn = isBuiltIn;
+        this.deviceModel = deviceModel;
     }
 
     public JSONObject toJson() {
@@ -75,6 +82,7 @@ public class AudioPreset {
             obj.put("id", id);
             obj.put("name", name);
             obj.put("isBuiltIn", isBuiltIn);
+            obj.put("deviceModel", deviceModel);
             obj.put("fftSize", fftSize);
             obj.put("useTukeyWindow", useTukeyWindow);
             obj.put("triggerMode", triggerMode);
@@ -157,6 +165,7 @@ public class AudioPreset {
             p.id = obj.optString("id", "preset_" + System.currentTimeMillis());
             p.name = obj.optString("name", "Пользовательский");
             p.isBuiltIn = obj.optBoolean("isBuiltIn", false);
+            p.deviceModel = obj.optInt("deviceModel", DeviceModelManager.MODEL_GT_5);
             p.fftSize = obj.optInt("fftSize", 1024);
             p.useTukeyWindow = obj.optBoolean("useTukeyWindow", false);
             p.triggerMode = obj.optInt("triggerMode", AudioAnalyzer.MODE_KICK_ONLY);

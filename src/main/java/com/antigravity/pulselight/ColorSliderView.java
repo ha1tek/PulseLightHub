@@ -47,6 +47,8 @@ public class ColorSliderView extends View {
 
     public static final int COLS = 5;
     public static final int ROWS = 3;
+    private int mRows = ROWS;
+    private int mDeviceModel = DeviceModelManager.MODEL_GT_5;
 
     // 15-color palette (3 rows x 5 cols):
     // Row 1 (0..4): 5 single colors (Белый, Неоновый Розовый, Красный, Оранжевый, Желтый)
@@ -174,6 +176,24 @@ public class ColorSliderView extends View {
         mListener = listener;
     }
 
+    public void setDeviceModel(int model) {
+        mDeviceModel = model;
+        if (model == DeviceModelManager.MODEL_GT_NEO_5) {
+            mRows = 2;
+            if (mSelectedIndex >= 10) {
+                selectIndexAnimated(7, true); // Revert gradient to single color (Голубой)
+            }
+        } else {
+            mRows = ROWS;
+        }
+        requestLayout();
+        invalidate();
+    }
+
+    public int getDeviceModel() {
+        return mDeviceModel;
+    }
+
     public void setColor(int color) {
         int bestIndex = 7;
         int minDistance = Integer.MAX_VALUE;
@@ -181,7 +201,8 @@ public class ColorSliderView extends View {
         int tg = (color >> 8) & 0xFF;
         int tb = color & 0xFF;
 
-        for (int i = 0; i < ITEMS.length; i++) {
+        int limit = Math.min(ITEMS.length, mRows * COLS);
+        for (int i = 0; i < limit; i++) {
             if (ITEMS[i].id == color) {
                 bestIndex = i;
                 break;
@@ -254,7 +275,7 @@ public class ColorSliderView extends View {
         float padY = 4f * density;
         float gapY = 6f * density;
         float tileH = 36f * density;
-        int desiredHeight = Math.round(2 * padY + ROWS * tileH + (ROWS - 1) * gapY);
+        int desiredHeight = Math.round(2 * padY + mRows * tileH + (mRows - 1) * gapY);
 
         int width = MeasureSpec.getSize(widthMeasureSpec);
         int heightMode = MeasureSpec.getMode(heightMeasureSpec);
@@ -274,7 +295,7 @@ public class ColorSliderView extends View {
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
 
-        int count = ITEMS.length;
+        int count = Math.min(ITEMS.length, mRows * COLS);
         float w = getWidth();
         float h = getHeight();
         if (w <= 0 || h <= 0) return;
@@ -288,8 +309,8 @@ public class ColorSliderView extends View {
         float availableW = w - 2 * padX - (COLS - 1) * gapX;
         float segW = availableW / COLS;
 
-        float availableH = h - 2 * padY - (ROWS - 1) * gapY;
-        float segH = availableH / ROWS;
+        float availableH = h - 2 * padY - (mRows - 1) * gapY;
+        float segH = availableH / mRows;
 
         float baseCorner = 8f * density;
 
@@ -301,8 +322,10 @@ public class ColorSliderView extends View {
         }
 
         // 2. Draw selected segment on top with elevated pop and highlight
-        float selectedF = mAnimFractions[mSelectedIndex];
-        drawTile(canvas, mSelectedIndex, selectedF, padX, padY, gapX, gapY, segW, segH, baseCorner, density);
+        if (mSelectedIndex < count) {
+            float selectedF = mAnimFractions[mSelectedIndex];
+            drawTile(canvas, mSelectedIndex, selectedF, padX, padY, gapX, gapY, segW, segH, baseCorner, density);
+        }
     }
 
     private void drawTile(Canvas canvas, int index, float f,
@@ -400,18 +423,19 @@ public class ColorSliderView extends View {
         float segW = availableW / COLS;
         float slotW = segW + gapX;
 
-        float availableH = h - 2 * padY - (ROWS - 1) * gapY;
-        float segH = availableH / ROWS;
+        float availableH = h - 2 * padY - (mRows - 1) * gapY;
+        float segH = availableH / mRows;
         float slotH = segH + gapY;
 
         int col = (int) ((touchX - padX) / slotW);
         int row = (int) ((touchY - padY) / slotH);
 
         col = Math.max(0, Math.min(COLS - 1, col));
-        row = Math.max(0, Math.min(ROWS - 1, row));
+        row = Math.max(0, Math.min(mRows - 1, row));
 
         int targetIndex = row * COLS + col;
-        targetIndex = Math.max(0, Math.min(ITEMS.length - 1, targetIndex));
+        int limit = Math.min(ITEMS.length, mRows * COLS);
+        targetIndex = Math.max(0, Math.min(limit - 1, targetIndex));
 
         if (targetIndex != mSelectedIndex) {
             selectIndexAnimated(targetIndex, true);

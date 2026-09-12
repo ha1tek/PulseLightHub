@@ -97,6 +97,36 @@ public class GlyphColorManager {
         return RAINBOW_COLORS[nextIndex];
     }
 
+    public static final int[] NEO_5_COLORS = new int[]{
+            0xFFFDFFFB, // Белый
+            0xFFFFA7FF, // Неоновый Розовый
+            0xFFFF3B30, // Красный
+            0xFFFF9500, // Оранжевый
+            0xFFFFEA00, // Желтый
+            0xFF00E676, // Зеленый
+            0xFF00FF1B, // Изумрудный
+            0xFF71BBFF, // Голубой
+            0xFF2979FF, // Синий
+            0xFFA820FF  // Фиолетовый
+    };
+    private static int sLastNeo5Index = -1;
+
+    public static synchronized int getRandomNeo5Color() {
+        int nextIndex;
+        if (sLastNeo5Index < 0) {
+            nextIndex = sRandom.nextInt(NEO_5_COLORS.length);
+        } else {
+            int offset = 1 + sRandom.nextInt(NEO_5_COLORS.length - 1);
+            nextIndex = (sLastNeo5Index + offset) % NEO_5_COLORS.length;
+        }
+        sLastNeo5Index = nextIndex;
+        return NEO_5_COLORS[nextIndex];
+    }
+
+    public static synchronized int getNextNeo5Color() {
+        return getRandomNeo5Color();
+    }
+
     public static int getRandomColor() {
         return getNextRainbowColor();
     }

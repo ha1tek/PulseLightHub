@@ -266,9 +266,9 @@ public class SpectrumVisualizerView extends View {
 
             boolean isColEnabled = isWide ? mWideEnabled[i] : mNarrowEnabled[i];
             if (!isColEnabled) {
-                mBgBarPaint.setAlpha(60);
-                mBarPaint.setAlpha(65);
-                mTextPaint.setAlpha(80);
+                mBgBarPaint.setAlpha(40);
+                mBarPaint.setAlpha(70);
+                mTextPaint.setAlpha(60);
             } else {
                 mBgBarPaint.setAlpha(255);
                 mBarPaint.setAlpha(255);
@@ -284,13 +284,15 @@ public class SpectrumVisualizerView extends View {
             }
 
             if (i == mSelectedBand) {
+                mHighlightPaint.setAlpha(isColEnabled ? 255 : 80);
                 mBarRect.set(barLeft - 2f * density, barBottom - barMaxHeight - 2f * density,
                         barRight + 2f * density, barBottom + 2f * density);
                 canvas.drawRoundRect(mBarRect, 8f * density, 8f * density, mHighlightPaint);
+                mHighlightPaint.setAlpha(255);
             }
 
             mTextPaint.setColor(i == mSelectedBand ? Color.WHITE : Color.parseColor("#8E909A"));
-            if (!isColEnabled) mTextPaint.setAlpha(80);
+            if (!isColEnabled) mTextPaint.setAlpha(50);
             canvas.drawText(labels[i], cx, h - 4f, mTextPaint);
         }
         mBgBarPaint.setAlpha(255);

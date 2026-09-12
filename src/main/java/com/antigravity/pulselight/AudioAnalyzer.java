@@ -49,7 +49,9 @@ public class AudioAnalyzer {
     public static final int PATTERN_TOP_RIGHT = 7;        // LED_A | LED_B
     public static final int PATTERN_BOTTOM_LEFT = 8;      // LED_C | LED_D
     public static final int PATTERN_BOTTOM_RIGHT = 9;     // LED_C | LED_B
-    public static final int PATTERN_ALL = 10;             // LED_ALL
+    public static final int PATTERN_ALL = 10;              // All LEDs (LED_ALL)
+    public static final int PATTERN_COLOR_CYCLE = 20;     // For GT Neo 5: Switches / cycles color on beat
+    public static final int PATTERN_FLASH_AND_COLOR_CYCLE = 21; // For GT Neo 5: Flashes glyph and switches color on beat
 
     // Presets
     public static final int PRESET_NOTHING_PURE = 0;
@@ -93,6 +95,8 @@ public class AudioAnalyzer {
     private static final String KEY_SPECTRUM_VISUAL_GAIN = "spectrum_visual_gain";
     private static final String KEY_NARROW_ENABLED_PREFIX = "narrow_enabled_";
     private static final String KEY_WIDE_ENABLED_PREFIX = "wide_enabled_";
+    private static final String KEY_NARROW_COLOR_CYCLE_PREFIX = "narrow_color_cycle_";
+    private static final String KEY_WIDE_COLOR_CYCLE_PREFIX = "wide_color_cycle_";
     private static final String KEY_ENABLE_MIN_HOLD = "enable_min_hold";
     private static final String KEY_MIN_HOLD_MS = "min_hold_ms";
     private static final String KEY_ENABLE_MAX_HOLD = "enable_max_hold";
@@ -141,6 +145,7 @@ public class AudioAnalyzer {
     private boolean mCalibSensitivity = true;
     private boolean mCalibLoudnessGate = true;
     private boolean mCalibDecay = true;
+    private boolean mCalibMinHold = true;
 
     // Narrow bands (4): SUB (20-80), KICK (80-180), SNARE (220-900), TREBLE (3500-16000)
     private final float[] mNarrowBands = new float[NARROW_BANDS_COUNT];
@@ -153,6 +158,7 @@ public class AudioAnalyzer {
     private final int[] mNarrowPatterns = new int[]{PATTERN_BOTTOM, PATTERN_TOP, PATTERN_LEFT_RIGHT, PATTERN_TOP};
     private final float[] mNarrowThresholds = new float[]{0.15f, 0.15f, 0.15f, 0.15f};
     private final boolean[] mNarrowEnabled = new boolean[]{true, true, true, true};
+    private final boolean[] mNarrowColorCycle = new boolean[]{false, false, false, false};
 
     // Wide bands (12): 20 Hz to 20 kHz (30, 60, 120, 250, 500, 1k, 2k, 4k, 6k, 9k, 12k, 16k)
     private final float[] mWideBands = new float[WIDE_BANDS_COUNT];
@@ -170,6 +176,7 @@ public class AudioAnalyzer {
             PATTERN_TOP_RIGHT, PATTERN_TOP, PATTERN_TOP_BOTTOM, PATTERN_ALL
     };
     private final boolean[] mWideEnabled = new boolean[]{true, true, true, true, true, true, true, true, true, true, true, true};
+    private final boolean[] mWideColorCycle = new boolean[WIDE_BANDS_COUNT];
 
     private int mDiagramIntervalMs = 1; // 1ms = 0.001 sec default (range: 1ms to 1000ms)
 
@@ -260,6 +267,7 @@ public class AudioAnalyzer {
         public int activeLedMask = 0;
         public float intensity = 0f;
         public boolean isBeat = false;
+        public boolean isColorCycle = false;
         public float[] bandLevels = new float[NARROW_BANDS_COUNT];
         public float[] wideLevels = new float[WIDE_BANDS_COUNT];
         public float[] wideCurve = new float[WIDE_BANDS_COUNT];
@@ -274,6 +282,7 @@ public class AudioAnalyzer {
             res.activeLedMask = this.activeLedMask;
             res.intensity = this.intensity;
             res.isBeat = this.isBeat;
+            res.isColorCycle = this.isColorCycle;
             res.rmsLoudness = this.rmsLoudness;
             res.spectralCentroid = this.spectralCentroid;
             res.spectrumMode = this.spectrumMode;
@@ -292,6 +301,7 @@ public class AudioAnalyzer {
         mResult.activeLedMask = 0;
         mResult.intensity = 0f;
         mResult.isBeat = false;
+        mResult.isColorCycle = false;
         mResult.rmsLoudness = 0f;
         mResult.spectralCentroid = 0f;
         mResult.spectrumMode = mSpectrumMode;
@@ -382,6 +392,7 @@ public class AudioAnalyzer {
             mNarrowPatterns[i] = sp.getInt(KEY_NARROW_PATTERN_PREFIX + i, defNarrowPatterns[i]);
             mNarrowThresholds[i] = sp.getFloat(KEY_NARROW_THRESH_PREFIX + i, 0.15f);
             mNarrowEnabled[i] = sp.getBoolean(KEY_NARROW_ENABLED_PREFIX + i, true);
+            mNarrowColorCycle[i] = sp.getBoolean(KEY_NARROW_COLOR_CYCLE_PREFIX + i, false);
         }
 
         int[] defWidePatterns = {
@@ -394,6 +405,7 @@ public class AudioAnalyzer {
             mWidePatterns[i] = sp.getInt(KEY_WIDE_PATTERN_PREFIX + i, defWidePatterns[i]);
             mWideThresholds[i] = sp.getFloat(KEY_WIDE_THRESH_PREFIX + i, 0.15f);
             mWideEnabled[i] = sp.getBoolean(KEY_WIDE_ENABLED_PREFIX + i, true);
+            mWideColorCycle[i] = sp.getBoolean(KEY_WIDE_COLOR_CYCLE_PREFIX + i, false);
         }
     }
 
@@ -566,12 +578,14 @@ public class AudioAnalyzer {
             ed.putInt(KEY_NARROW_PATTERN_PREFIX + i, mNarrowPatterns[i]);
             ed.putFloat(KEY_NARROW_THRESH_PREFIX + i, mNarrowThresholds[i]);
             ed.putBoolean(KEY_NARROW_ENABLED_PREFIX + i, mNarrowEnabled[i]);
+            ed.putBoolean(KEY_NARROW_COLOR_CYCLE_PREFIX + i, mNarrowColorCycle[i]);
         }
         for (int i = 0; i < WIDE_BANDS_COUNT; i++) {
             ed.putFloat(KEY_WIDE_GAIN_PREFIX + i, mWideGains[i]);
             ed.putInt(KEY_WIDE_PATTERN_PREFIX + i, mWidePatterns[i]);
             ed.putFloat(KEY_WIDE_THRESH_PREFIX + i, mWideThresholds[i]);
             ed.putBoolean(KEY_WIDE_ENABLED_PREFIX + i, mWideEnabled[i]);
+            ed.putBoolean(KEY_WIDE_COLOR_CYCLE_PREFIX + i, mWideColorCycle[i]);
         }
         ed.apply();
         PulseAudioService.reloadSettings(context);
@@ -599,7 +613,9 @@ public class AudioAnalyzer {
             case PATTERN_TOP_RIGHT: return RealmeGlyphDriver.LED_A | RealmeGlyphDriver.LED_B;
             case PATTERN_BOTTOM_LEFT: return RealmeGlyphDriver.LED_C | RealmeGlyphDriver.LED_D;
             case PATTERN_BOTTOM_RIGHT: return RealmeGlyphDriver.LED_C | RealmeGlyphDriver.LED_B;
-            case PATTERN_ALL: return RealmeGlyphDriver.LED_ALL;
+            case PATTERN_ALL:
+            case PATTERN_FLASH_AND_COLOR_CYCLE:
+                return RealmeGlyphDriver.LED_ALL;
             case PATTERN_OFF:
             default: return 0;
         }
@@ -816,6 +832,32 @@ public class AudioAnalyzer {
         }
     }
 
+    public boolean isNarrowColorCycle(int index) {
+        return (index >= 0 && index < NARROW_BANDS_COUNT) && mNarrowColorCycle[index];
+    }
+    public void setNarrowColorCycle(int index, boolean enabled, Context context) {
+        if (index >= 0 && index < NARROW_BANDS_COUNT) {
+            mNarrowColorCycle[index] = enabled;
+            if (context != null) {
+                context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                        .edit().putBoolean(KEY_NARROW_COLOR_CYCLE_PREFIX + index, enabled).apply();
+            }
+        }
+    }
+
+    public boolean isWideColorCycle(int index) {
+        return (index >= 0 && index < WIDE_BANDS_COUNT) && mWideColorCycle[index];
+    }
+    public void setWideColorCycle(int index, boolean enabled, Context context) {
+        if (index >= 0 && index < WIDE_BANDS_COUNT) {
+            mWideColorCycle[index] = enabled;
+            if (context != null) {
+                context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                        .edit().putBoolean(KEY_WIDE_COLOR_CYCLE_PREFIX + index, enabled).apply();
+            }
+        }
+    }
+
     public int getDiagramIntervalMs() {
         return mDiagramIntervalMs;
     }
@@ -837,18 +879,25 @@ public class AudioAnalyzer {
     }
 
     public void startAutoCalibration(CalibrationCallback callback) {
-        startAutoCalibration(10000, true, true, true, true, true, callback);
+        startAutoCalibration(10000, true, true, true, true, true, true, callback);
     }
 
     public void startAutoCalibration(int durationMs, boolean calibGains, boolean calibThresholds,
                                      boolean calibSens, boolean calibLoudness, boolean calibDecay,
                                      CalibrationCallback callback) {
+        startAutoCalibration(durationMs, calibGains, calibThresholds, calibSens, calibLoudness, calibDecay, true, callback);
+    }
+
+    public void startAutoCalibration(int durationMs, boolean calibGains, boolean calibThresholds,
+                                     boolean calibSens, boolean calibLoudness, boolean calibDecay,
+                                     boolean calibMinHold, CalibrationCallback callback) {
         mCalibrationDurationMs = Math.max(2000, Math.min(20000, durationMs));
         mCalibGains = calibGains;
         mCalibThresholds = calibThresholds;
         mCalibSensitivity = calibSens;
         mCalibLoudnessGate = calibLoudness;
         mCalibDecay = calibDecay;
+        mCalibMinHold = calibMinHold;
 
         mCalibrationCallback = callback;
         mCalibrationStartTime = System.currentTimeMillis();
@@ -891,6 +940,11 @@ public class AudioAnalyzer {
 
         int frames = Math.max(1, mCalibFramesCount);
 
+        if (mContext != null && DeviceModelManager.isGtNeo5(mContext)) {
+            finishAutoCalibrationNeo5(frames, cb);
+            return;
+        }
+
         // 1. RMS статистика для тишины, динамики и чувствительности
         float rmsP10 = getPercentileFromHist(mCalibRmsHist, frames, 0.10f, CALIB_MAG_BIN_STEP);
         float rmsP90 = getPercentileFromHist(mCalibRmsHist, frames, 0.90f, CALIB_MAG_BIN_STEP);
@@ -919,7 +973,21 @@ public class AudioAnalyzer {
             }
         }
 
-        // 5. Узкие полосы: гейны по 90 перцентилю и пороги по дельте потока
+        // 5. Минимальное время удержания вспышки min hold time для Realme GT 5:
+        // Подбирается по темпу — межбитовому интервалу — и динамическому контрасту трека
+        if (mCalibMinHold) {
+            mEnableMinHoldTime = true;
+            if (mCalibIntervalsCount >= 3) {
+                float avgInterval = (float) mCalibIntervalSumMs / mCalibIntervalsCount;
+                int calculatedMinHold = Math.round(avgInterval * 0.095f);
+                mMinHoldTimeMs = Math.max(32, Math.min(65, calculatedMinHold));
+            } else {
+                mMinHoldTimeMs = Math.round(40 + dynamicContrast * 15);
+                mMinHoldTimeMs = Math.max(35, Math.min(60, mMinHoldTimeMs));
+            }
+        }
+
+        // 6. Узкие полосы: гейны по 90 перцентилю и пороги по дельте потока
         float[] narrowP90 = new float[NARROW_BANDS_COUNT];
         for (int i = 0; i < NARROW_BANDS_COUNT; i++) {
             narrowP90[i] = getPercentileFromHist(mCalibNarrowMagHist[i], frames, 0.90f, CALIB_MAG_BIN_STEP);
@@ -1000,6 +1068,128 @@ public class AudioAnalyzer {
         mWidePatterns[9] = (wideP90[9] >= 0.015f) ? PATTERN_TOP : PATTERN_OFF;
         mWidePatterns[10] = (wideP90[10] >= 0.015f) ? PATTERN_TOP : PATTERN_OFF;
         mWidePatterns[11] = (wideP90[11] >= 0.015f) ? PATTERN_ALL : PATTERN_OFF;
+
+        if (mContext != null) {
+            saveSettings(mContext);
+        }
+
+        if (cb != null) {
+            mMainHandler.post(cb::onCalibrationComplete);
+        }
+    }
+
+    private void finishAutoCalibrationNeo5(int frames, CalibrationCallback cb) {
+        // 1. RMS статистика для тишины, динамики и чувствительности
+        float rmsP10 = getPercentileFromHist(mCalibRmsHist, frames, 0.10f, CALIB_MAG_BIN_STEP);
+        float rmsP90 = getPercentileFromHist(mCalibRmsHist, frames, 0.90f, CALIB_MAG_BIN_STEP);
+        float dynamicContrast = (rmsP90 - rmsP10) / Math.max(0.02f, rmsP90);
+
+        // 2. Чувствительность для единого глифа GT Neo 5
+        if (mCalibSensitivity) {
+            mSensitivity = Math.max(1.18f, Math.min(1.48f, 1.18f + dynamicContrast * 0.35f));
+        }
+
+        // 3. Silence Gate с запасом над шумовой полкой
+        if (mCalibLoudnessGate && mEnableLoudnessGate) {
+            float calculatedGate = Math.max(rmsP10 * 1.35f + 0.008f, rmsP90 * 0.22f);
+            mLoudnessGateThreshold = Math.max(0.025f, Math.min(0.12f, calculatedGate));
+        }
+
+        // 4. Темпо-адаптивное время затухания decay: более быстрое для четкого отклика одиночного глифа
+        if (mCalibDecay) {
+            if (mCalibIntervalsCount >= 3) {
+                float avgInterval = (float) mCalibIntervalSumMs / mCalibIntervalsCount;
+                int calculatedDecay = Math.round(avgInterval * 0.18f);
+                mDecayMs = Math.max(45, Math.min(85, calculatedDecay));
+            } else {
+                mDecayMs = 60;
+            }
+        }
+
+        // 5. Минимальное время удержания вспышки min hold time для единого кольца GT Neo 5:
+        // Компактный диапазон удержания для предотвращения смазывания быстрых ритмов и смены цветов
+        if (mCalibMinHold) {
+            mEnableMinHoldTime = true;
+            if (mCalibIntervalsCount >= 3) {
+                float avgInterval = (float) mCalibIntervalSumMs / mCalibIntervalsCount;
+                int calculatedMinHold = Math.round(avgInterval * 0.080f);
+                mMinHoldTimeMs = Math.max(28, Math.min(52, calculatedMinHold));
+            } else {
+                mMinHoldTimeMs = Math.round(35 + dynamicContrast * 12);
+                mMinHoldTimeMs = Math.max(30, Math.min(50, mMinHoldTimeMs));
+            }
+        }
+
+        // 6. Узкие полосы: 4 диапазона с распределением вспышки и смены цвета
+        float[] narrowP90 = new float[NARROW_BANDS_COUNT];
+        for (int i = 0; i < NARROW_BANDS_COUNT; i++) {
+            narrowP90[i] = getPercentileFromHist(mCalibNarrowMagHist[i], frames, 0.90f, CALIB_MAG_BIN_STEP);
+
+            if (mCalibGains) {
+                if (narrowP90[i] >= 0.018f) {
+                    float targetGain = 0.52f / narrowP90[i];
+                    mNarrowGains[i] = Math.max(0.65f, Math.min(2.20f, targetGain));
+                } else {
+                    mNarrowGains[i] = 1.0f;
+                }
+            }
+
+            if (mCalibThresholds && mEnableBandThreshold) {
+                float avgFlux = mCalibNarrowFluxSum[i] / frames;
+                float fluxP90 = getPercentileFromHist(mCalibNarrowFluxHist[i], frames, 0.90f, CALIB_FLUX_BIN_STEP);
+                float deltaFlux = Math.max(0.018f, fluxP90 - avgFlux);
+                mNarrowThresholds[i] = Math.max(0.08f, Math.min(0.32f, deltaFlux * 1.25f));
+            }
+        }
+
+        // Распределение реакций полос для GT Neo 5:
+        // Полоса 0 Sub: Вспышка PATTERN_ALL или выключена
+        mNarrowPatterns[0] = (narrowP90[0] >= 0.018f) ? PATTERN_ALL : PATTERN_OFF;
+        // Полоса 1 Kick: Главная ритмическая вспышка
+        mNarrowPatterns[1] = (narrowP90[1] >= 0.015f) ? PATTERN_ALL : PATTERN_OFF;
+        // Полоса 2 Snare: Вспышка и смена цвета на каждый удар снейра
+        mNarrowPatterns[2] = (narrowP90[2] >= 0.015f) ? PATTERN_FLASH_AND_COLOR_CYCLE : PATTERN_OFF;
+        // Полоса 3 Hi-Hat: Вспышка на ярких тарелках
+        mNarrowPatterns[3] = (narrowP90[3] >= 0.022f) ? PATTERN_ALL : PATTERN_OFF;
+
+        // 6. Широкие полосы: 12 диапазонов
+        float[] wideP90 = new float[WIDE_BANDS_COUNT];
+        for (int i = 0; i < WIDE_BANDS_COUNT; i++) {
+            wideP90[i] = getPercentileFromHist(mCalibWideMagHist[i], frames, 0.90f, CALIB_MAG_BIN_STEP);
+
+            if (mCalibGains) {
+                if (wideP90[i] >= 0.016f) {
+                    float targetGain = 0.50f / wideP90[i];
+                    mWideGains[i] = Math.max(0.65f, Math.min(2.20f, targetGain));
+                } else {
+                    mWideGains[i] = 1.0f;
+                }
+            }
+
+            if (mCalibThresholds && mEnableBandThreshold) {
+                float avgFlux = mCalibWideFluxSum[i] / frames;
+                float fluxP90 = getPercentileFromHist(mCalibWideFluxHist[i], frames, 0.90f, CALIB_FLUX_BIN_STEP);
+                float deltaFlux = Math.max(0.018f, fluxP90 - avgFlux);
+                mWideThresholds[i] = Math.max(0.06f, Math.min(0.30f, deltaFlux * 1.20f));
+            }
+        }
+
+        // Басовые частоты 0..3: Вспышка PATTERN_ALL
+        for (int i = 0; i <= 3; i++) {
+            mWidePatterns[i] = (wideP90[i] >= 0.015f) ? PATTERN_ALL : PATTERN_OFF;
+        }
+        // Средние частоты и снейры 4..7: Вспышка и смена цвета PATTERN_FLASH_AND_COLOR_CYCLE
+        for (int i = 4; i <= 7; i++) {
+            mWidePatterns[i] = (wideP90[i] >= 0.015f) ? PATTERN_FLASH_AND_COLOR_CYCLE : PATTERN_OFF;
+        }
+        // Перкуссия 8..9: Смена случайного цвета PATTERN_COLOR_CYCLE
+        for (int i = 8; i <= 9; i++) {
+            mWidePatterns[i] = (wideP90[i] >= 0.015f) ? PATTERN_COLOR_CYCLE : PATTERN_OFF;
+        }
+        // Высокие частоты 10..11: Вспышка PATTERN_ALL
+        for (int i = 10; i <= 11; i++) {
+            mWidePatterns[i] = (wideP90[i] >= 0.018f) ? PATTERN_ALL : PATTERN_OFF;
+        }
 
         if (mContext != null) {
             saveSettings(mContext);
@@ -1656,13 +1846,30 @@ public class AudioAnalyzer {
 
         // 5. Trigger Decision based on Spectrum Mode
         boolean beatHit = false;
+        boolean colorCycleHit = false;
         float maxIntensity = 0f;
         int activeMask = 0;
 
         if (passesFilter) {
             if (mStudioAnalysisMode == STUDIO_MODE_FAST || mSpectrumMode == SPECTRUM_MODE_NARROW) {
                 for (int i = 0; i < NARROW_BANDS_COUNT; i++) {
-                    if (mNarrowIntensities[i] > 0.05f) {
+                    if (narrowHit[i] && mNarrowColorCycle[i]) {
+                        colorCycleHit = true;
+                    }
+                    if (mNarrowPatterns[i] == PATTERN_COLOR_CYCLE) {
+                        if (narrowHit[i]) {
+                            colorCycleHit = true;
+                        }
+                    } else if (mNarrowPatterns[i] == PATTERN_FLASH_AND_COLOR_CYCLE) {
+                        if (narrowHit[i]) {
+                            colorCycleHit = true;
+                            beatHit = true;
+                        }
+                        if (mNarrowIntensities[i] > 0.05f) {
+                            activeMask |= RealmeGlyphDriver.LED_ALL;
+                            maxIntensity = Math.max(maxIntensity, mNarrowIntensities[i]);
+                        }
+                    } else if (mNarrowIntensities[i] > 0.05f) {
                         int mask = getPatternLedMask(mNarrowPatterns[i]);
                         activeMask |= mask;
                         maxIntensity = Math.max(maxIntensity, mNarrowIntensities[i]);
@@ -1671,7 +1878,23 @@ public class AudioAnalyzer {
                 }
             } else {
                 for (int i = 0; i < WIDE_BANDS_COUNT; i++) {
-                    if (mWideIntensities[i] > 0.05f) {
+                    if (wideHit[i] && mWideColorCycle[i]) {
+                        colorCycleHit = true;
+                    }
+                    if (mWidePatterns[i] == PATTERN_COLOR_CYCLE) {
+                        if (wideHit[i]) {
+                            colorCycleHit = true;
+                        }
+                    } else if (mWidePatterns[i] == PATTERN_FLASH_AND_COLOR_CYCLE) {
+                        if (wideHit[i]) {
+                            colorCycleHit = true;
+                            beatHit = true;
+                        }
+                        if (mWideIntensities[i] > 0.05f) {
+                            activeMask |= RealmeGlyphDriver.LED_ALL;
+                            maxIntensity = Math.max(maxIntensity, mWideIntensities[i]);
+                        }
+                    } else if (mWideIntensities[i] > 0.05f) {
                         int mask = getPatternLedMask(mWidePatterns[i]);
                         activeMask |= mask;
                         maxIntensity = Math.max(maxIntensity, mWideIntensities[i]);
@@ -1738,6 +1961,7 @@ public class AudioAnalyzer {
         mResult.activeLedMask = activeMask;
         mResult.intensity = maxIntensity;
         mResult.isBeat = beatHit;
+        mResult.isColorCycle = colorCycleHit;
         return mResult;
     }
 }

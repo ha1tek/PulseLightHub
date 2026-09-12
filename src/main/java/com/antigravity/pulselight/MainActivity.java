@@ -116,6 +116,12 @@ public class MainActivity extends Activity {
     private TextView tvPresetDropdownName, tvPresetDropdownBadge, tvPresetDropdownArrow;
     private TextView btnStudioAddPreset, btnStudioExportPreset, btnStudioImportPreset;
 
+    // Bluetooth Latency Compensation Offset
+    private ModernSwitch switchBluetoothDelay;
+    private View layoutBluetoothDelayControls;
+    private TextView tvBluetoothDelayValue;
+    private SeekBar seekBluetoothDelay;
+
     // Glyph Beat Hold Times
     private ModernSwitch switchGlyphMinTime, switchGlyphMaxTime;
     private View containerGlyphMinTime, containerGlyphMaxTime;
@@ -166,12 +172,19 @@ public class MainActivity extends Activity {
         RealmeGlyphDriver.init(this);
         updateDriverStatusBadge();
 
-        // Ensure engine is OFF on app launch - user must turn it ON manually
-        AudioAnalyzer.setEngineEnabled(this, false);
-        PulseAudioService.stopEngine(this);
+        // If engine is not already running in background, keep it OFF on cold start
+        if (!PulseAudioService.isRunning()) {
+            AudioAnalyzer.setEngineEnabled(this, false);
+        }
 
         // Start on Tab 0 (Glyph Studio)
         selectTab(0);
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
     }
 
     @Override
@@ -180,6 +193,7 @@ public class MainActivity extends Activity {
         applyThemeColors(ThemeManager.getBackgroundColor(this), ThemeManager.getAccentColor(this));
         updateDriverStatusBadge();
         syncColorTargetUI();
+        syncBluetoothDelayUI();
         updateEngineControls();
         attachFrameListener();
     }
@@ -532,6 +546,13 @@ public class MainActivity extends Activity {
         }
 
         syncColorTargetUI();
+
+        // Bluetooth Latency Compensation Offset
+        switchBluetoothDelay = findViewById(R.id.switch_bluetooth_delay);
+        layoutBluetoothDelayControls = findViewById(R.id.layout_bluetooth_delay_controls);
+        tvBluetoothDelayValue = findViewById(R.id.tv_bluetooth_delay_value);
+        seekBluetoothDelay = findViewById(R.id.seek_bluetooth_delay);
+        setupBluetoothDelayControls();
 
         // Preset Dropdown
         layoutPresetDropdown = findViewById(R.id.layout_preset_dropdown);
@@ -1598,6 +1619,76 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void setupBluetoothDelayControls() {
+        if (switchBluetoothDelay != null) {
+            switchBluetoothDelay.setOnCheckedChangeListener((view, isChecked) -> {
+                if (mAudioAnalyzer != null) {
+                    mAudioAnalyzer.setBluetoothDelayEnabled(isChecked);
+                    mAudioAnalyzer.saveSettings(MainActivity.this);
+                }
+                int curDelay = (mAudioAnalyzer != null) ? mAudioAnalyzer.getBluetoothDelayMs() : 150;
+                updateBluetoothDelayUI(isChecked, curDelay, true);
+                if (!isChecked) {
+                    PulseAudioService.clearDelayQueue();
+                }
+            });
+        }
+
+        if (seekBluetoothDelay != null) {
+            seekBluetoothDelay.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                @Override
+                public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                    if (fromUser && mAudioAnalyzer != null) {
+                        int ms = progress * 10;
+                        mAudioAnalyzer.setBluetoothDelayMs(ms);
+                        mAudioAnalyzer.saveSettings(MainActivity.this);
+                        if (tvBluetoothDelayValue != null) {
+                            tvBluetoothDelayValue.setText(ms + " мс");
+                        }
+                    }
+                }
+
+                @Override public void onStartTrackingTouch(SeekBar seekBar) {}
+                @Override public void onStopTrackingTouch(SeekBar seekBar) {}
+            });
+        }
+
+        syncBluetoothDelayUI();
+    }
+
+    private void syncBluetoothDelayUI() {
+        if (mAudioAnalyzer == null) return;
+        mAudioAnalyzer.loadSettings(this);
+        boolean isEnabled = mAudioAnalyzer.isBluetoothDelayEnabled();
+        int delayMs = mAudioAnalyzer.getBluetoothDelayMs();
+        if (switchBluetoothDelay != null) {
+            switchBluetoothDelay.setChecked(isEnabled);
+        }
+        if (seekBluetoothDelay != null) {
+            seekBluetoothDelay.setProgress(Math.max(0, Math.min(60, delayMs / 10)));
+        }
+        updateBluetoothDelayUI(isEnabled, delayMs, false);
+    }
+
+    private void updateBluetoothDelayUI(boolean enabled, int delayMs, boolean animate) {
+        float targetAlpha = enabled ? 1.0f : 0.35f;
+        if (layoutBluetoothDelayControls != null) {
+            if (animate) {
+                layoutBluetoothDelayControls.animate().alpha(targetAlpha).setDuration(220).start();
+            } else {
+                layoutBluetoothDelayControls.setAlpha(targetAlpha);
+            }
+        }
+        if (seekBluetoothDelay != null) {
+            seekBluetoothDelay.setEnabled(enabled);
+            seekBluetoothDelay.setClickable(enabled);
+            seekBluetoothDelay.setFocusable(enabled);
+        }
+        if (tvBluetoothDelayValue != null) {
+            tvBluetoothDelayValue.setText(delayMs + " мс");
+        }
+    }
+
     private void saveTargetColor(int color) {
         PulseLightManager.setMusicColor(this, color);
         PulseLightManager.setMusicFlickerColor(this, color);
@@ -1941,7 +2032,8 @@ public class MainActivity extends Activity {
         SeekBar[] seekBars = new SeekBar[]{
                 seekDiagramInterval, seekSpectrumGain, seekBandGain, seekBandThresh,
                 seekGlyphMinTime, seekGlyphMaxTime, seekLoudnessGate,
-                seekFilterFInterp, seekFilterVariation, seekSensitivity, seekDecay
+                seekFilterFInterp, seekFilterVariation, seekSensitivity, seekDecay,
+                seekBluetoothDelay
         };
         for (SeekBar sb : seekBars) {
             if (sb == null) continue;
@@ -1967,7 +2059,7 @@ public class MainActivity extends Activity {
                 tvSelectedBandGainVal, tvSelectedBandThreshVal, tvSensitivityValue,
                 tvDecayValue, tvGlyphMinTimeVal, tvGlyphMaxTimeVal, tvLoudnessGateVal,
                 tvFilterFInterpVal, tvFilterVariationVal, tvDiagramIntervalVal,
-                tvSpectrumGainVal, tvPresetDropdownArrow
+                tvSpectrumGainVal, tvPresetDropdownArrow, tvBluetoothDelayValue
         };
         for (TextView tv : accentViews) {
             if (tv != null) {

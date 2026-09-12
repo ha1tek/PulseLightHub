@@ -18,6 +18,7 @@ import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionManager;
 import android.os.Build;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.Looper;
 import android.util.Log;
@@ -58,6 +59,10 @@ public class PulseAudioService extends Service {
 
     private int mCurrentBeatColor = GlyphColorManager.DEFAULT_BLUE;
     private int mPreviousActiveMask = 0;
+
+    private HandlerThread mDelayThread = null;
+    private Handler mDelayHandler = null;
+    private volatile int mLastScheduledMask = 0;
 
     private static volatile PulseAudioService sInstance = null;
 
@@ -106,6 +111,24 @@ public class PulseAudioService extends Service {
     public static void reloadSettings(Context context) {
         if (sInstance != null && sInstance.mAnalyzer != null && context != null) {
             sInstance.mAnalyzer.loadSettings(context);
+            if (!sInstance.mAnalyzer.isBluetoothDelayEnabled()) {
+                clearDelayQueue();
+            }
+        }
+    }
+
+    public static void clearDelayQueue() {
+        if (sInstance != null) {
+            sInstance.mLastScheduledMask = 0;
+            if (sInstance.mDelayHandler != null) {
+                sInstance.mDelayHandler.removeCallbacksAndMessages(null);
+                sInstance.mDelayHandler.post(() -> {
+                    if (sInstance.mPreviousActiveMask != 0) {
+                        RealmeGlyphDriver.turnOff();
+                        sInstance.mPreviousActiveMask = 0;
+                    }
+                });
+            }
         }
     }
 
@@ -114,6 +137,9 @@ public class PulseAudioService extends Service {
         super.onCreate();
         sInstance = this;
         mAnalyzer = new AudioAnalyzer(this);
+        mDelayThread = new HandlerThread("PulseDelayDispatcher");
+        mDelayThread.start();
+        mDelayHandler = new Handler(mDelayThread.getLooper());
         createNotificationChannel();
     }
 
@@ -147,6 +173,7 @@ public class PulseAudioService extends Service {
     }
 
     public static void stopEngine(Context context) {
+        clearDelayQueue();
         Intent intent = new Intent(context, PulseAudioService.class);
         context.stopService(intent);
         AudioAnalyzer.setEngineEnabled(context, false);
@@ -346,20 +373,13 @@ public class PulseAudioService extends Service {
 
                     if (avgAmp < 10.0f) {
                         // Digital silence (track paused or between songs)
-                        if (mPreviousActiveMask != 0) {
-                            RealmeGlyphDriver.turnOff();
-                            mPreviousActiveMask = 0;
-                        }
-                        OnAudioFrameListener listener = sFrameListener;
-                        if (listener != null) {
-                            listener.onAudioFrame(mAnalyzer.getEmptyResult(), mCurrentBeatColor);
-                        }
+                        routeAnalysisResult(mAnalyzer.getEmptyResult());
                         Thread.sleep(30);
                         continue;
                     }
 
                     AudioAnalyzer.AnalysisResult result = mAnalyzer.processPcm(pcmBuffer, read, sampleRate);
-                    dispatchAnalysisResult(result);
+                    routeAnalysisResult(result);
                 }
             } else {
                 runVisualizerLoop();
@@ -407,20 +427,13 @@ public class PulseAudioService extends Service {
                 }
 
                 if (isSilent) {
-                    if (mPreviousActiveMask != 0) {
-                        RealmeGlyphDriver.turnOff();
-                        mPreviousActiveMask = 0;
-                    }
-                    OnAudioFrameListener listener = sFrameListener;
-                    if (listener != null) {
-                        listener.onAudioFrame(mAnalyzer.getEmptyResult(), mCurrentBeatColor);
-                    }
+                    routeAnalysisResult(mAnalyzer.getEmptyResult());
                     Thread.sleep(60);
                     continue;
                 }
 
                 AudioAnalyzer.AnalysisResult result = mAnalyzer.processFft(fftBuffer, samplingRate);
-                dispatchAnalysisResult(result);
+                routeAnalysisResult(result);
 
                 Thread.sleep(12);
             }
@@ -428,6 +441,31 @@ public class PulseAudioService extends Service {
             Log.w(TAG, "Visualizer loop error: " + t.getMessage());
         } finally {
             releaseVisualizer();
+        }
+    }
+
+    private void routeAnalysisResult(AudioAnalyzer.AnalysisResult result) {
+        if (result == null || mDelayHandler == null) return;
+
+        boolean delayEnabled = mAnalyzer != null && mAnalyzer.isBluetoothDelayEnabled();
+        int delayMs = (mAnalyzer != null) ? mAnalyzer.getBluetoothDelayMs() : 0;
+
+        // Digital silence optimization: avoid flooding handler with duplicate empty frames
+        if (result.activeLedMask == 0 && mLastScheduledMask == 0) {
+            OnAudioFrameListener listener = sFrameListener;
+            if (listener != null) {
+                listener.onAudioFrame(result, mCurrentBeatColor);
+            }
+            return;
+        }
+
+        mLastScheduledMask = result.activeLedMask;
+
+        if (delayEnabled && delayMs > 0) {
+            AudioAnalyzer.AnalysisResult copy = result.copy();
+            mDelayHandler.postDelayed(() -> dispatchAnalysisResult(copy), delayMs);
+        } else {
+            mDelayHandler.post(() -> dispatchAnalysisResult(result));
         }
     }
 
@@ -484,6 +522,14 @@ public class PulseAudioService extends Service {
     }
 
     @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        super.onTaskRemoved(rootIntent);
+        Log.i(TAG, "Application swiped from Recents, stopping audio engine and turning off lights...");
+        stopEngine(this);
+        stopSelf();
+    }
+
+    @Override
     public void onDestroy() {
         mIsRunning = false;
         if (mCaptureThread != null) {
@@ -492,6 +538,12 @@ public class PulseAudioService extends Service {
         }
         if (mAnalyzer != null) {
             mAnalyzer.cancelCalibration();
+        }
+        clearDelayQueue();
+        if (mDelayThread != null) {
+            mDelayThread.quitSafely();
+            mDelayThread = null;
+            mDelayHandler = null;
         }
         releaseAudioRecord();
         releaseVisualizer();

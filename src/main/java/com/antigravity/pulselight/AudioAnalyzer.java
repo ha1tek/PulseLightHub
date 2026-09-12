@@ -102,12 +102,18 @@ public class AudioAnalyzer {
     private static final String KEY_ENABLE_VARIATION = "enable_variation";
     private static final String KEY_VARIATION_DEPTH = "variation_depth";
     private static final String KEY_ENABLE_LIMITER = "enable_limiter";
+    private static final String KEY_ENABLE_BLUETOOTH_DELAY = "enable_bluetooth_delay";
+    private static final String KEY_BLUETOOTH_DELAY_MS = "bluetooth_delay_ms";
 
     public static final int NARROW_BANDS_COUNT = 4;
     public static final int WIDE_BANDS_COUNT = 12;
 
     private boolean mEnableBandThreshold = true;
     private float mSpectrumVisualGain = 1.40f; // Global spectrum visual sensitivity (0.5x to 3.0x)
+
+    // Bluetooth Latency Compensation Offset
+    private boolean mEnableBluetoothDelay = false;
+    private int mBluetoothDelayMs = 150;
 
     // Hold Time Constraints
     private boolean mEnableMinHoldTime = false;
@@ -367,6 +373,8 @@ public class AudioAnalyzer {
         mDiagramIntervalMs = sp.getInt(KEY_DIAGRAM_INTERVAL_MS, 10);
         mEnableBandThreshold = sp.getBoolean(KEY_ENABLE_BAND_THRESHOLD, true);
         mSpectrumVisualGain = sp.getFloat(KEY_SPECTRUM_VISUAL_GAIN, 1.40f);
+        mEnableBluetoothDelay = sp.getBoolean(KEY_ENABLE_BLUETOOTH_DELAY, false);
+        mBluetoothDelayMs = sp.getInt(KEY_BLUETOOTH_DELAY_MS, 150);
 
         int[] defNarrowPatterns = {PATTERN_BOTTOM, PATTERN_TOP, PATTERN_LEFT_RIGHT, PATTERN_TOP};
         for (int i = 0; i < NARROW_BANDS_COUNT; i++) {
@@ -549,7 +557,9 @@ public class AudioAnalyzer {
                 .putString(KEY_ACTIVE_PRESET_ID, mActivePresetId)
                 .putInt(KEY_DIAGRAM_INTERVAL_MS, mDiagramIntervalMs)
                 .putBoolean(KEY_ENABLE_BAND_THRESHOLD, mEnableBandThreshold)
-                .putFloat(KEY_SPECTRUM_VISUAL_GAIN, mSpectrumVisualGain);
+                .putFloat(KEY_SPECTRUM_VISUAL_GAIN, mSpectrumVisualGain)
+                .putBoolean(KEY_ENABLE_BLUETOOTH_DELAY, mEnableBluetoothDelay)
+                .putInt(KEY_BLUETOOTH_DELAY_MS, mBluetoothDelayMs);
 
         for (int i = 0; i < NARROW_BANDS_COUNT; i++) {
             ed.putFloat(KEY_NARROW_GAIN_PREFIX + i, mNarrowGains[i]);
@@ -634,6 +644,11 @@ public class AudioAnalyzer {
     public void setDecayMs(int ms) { mDecayMs = ms; mPreset = PRESET_CUSTOM; }
     public int getAudioSource() { return mAudioSource; }
     public void setAudioSource(int source) { mAudioSource = source; }
+
+    public boolean isBluetoothDelayEnabled() { return mEnableBluetoothDelay; }
+    public void setBluetoothDelayEnabled(boolean enabled) { mEnableBluetoothDelay = enabled; }
+    public int getBluetoothDelayMs() { return mBluetoothDelayMs; }
+    public void setBluetoothDelayMs(int delayMs) { mBluetoothDelayMs = Math.max(0, Math.min(1000, delayMs)); }
 
     public int getSpectrumMode() { return mSpectrumMode; }
     public void setSpectrumMode(int mode) { mSpectrumMode = mode; }

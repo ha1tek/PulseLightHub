@@ -5,7 +5,7 @@
 [![Network](https://img.shields.io/badge/Network-100%25_Offline-00E5FF.svg?style=flat-square)](https://github.com/ha1tek/PulseLightHub)
 [![DSP](https://img.shields.io/badge/Audio_DSP-aubio_HFC_+_RMS-blueviolet.svg?style=flat-square)](https://github.com/ha1tek/PulseLightHub)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
-[![Release](https://img.shields.io/badge/Release-v1.1.1-brightgreen.svg?style=flat-square)](https://github.com/ha1tek/PulseLightHub/releases)
+[![Release](https://img.shields.io/badge/Release-v1.2-brightgreen.svg?style=flat-square)](https://github.com/ha1tek/PulseLightHub/releases)
 
 Pulse Light Hub — высокопроизводительный автономный музыкальный визуализатор для RGB подсветки Awakening Halo смартфона Realme GT 5. Приложение анализирует системный звук или сигнал с микрофона в реальном времени с нулевой задержкой и управляет четырьмя сегментами глифа через прямой нативный интерфейс аппаратного контроллера.
 
@@ -17,6 +17,7 @@ Pulse Light Hub — высокопроизводительный автоном�
 - Профессиональный DSP движок: многополосный спектральный анализ на базе алгоритмов aubio HFC и среднеквадратичной интеграции энергии RMS.
 - Разделение партий ударных: независимое распознавание бочки, баса, рабочего барабана, хлопков и хай-хэтов с компенсацией спектрального спада энергии высоких частот.
 - Сверхнизкая задержка: кадровый рендеринг до 120 FPS с мгновенной атакой импульса и экспоненциальным затуханием.
+- Синхронизация задержки Bluetooth: плавная регулировка оффсета от 0 до 600 мс для устранения рассинхронизации подсветки с беспроводными наушниками и колонками.
 - Круговой выбор цвета Color Picker: плавный селектор «Свой цвет» с калибровкой всех оттенков аппаратного HAL контроллера.
 - Аппаратная калибровка сине-фиолетового спектра: поддержка системных профилей ColorOS, включая королевский ультрамарин `0x8B73BBFF` из Always-On, индиго и бархатный фиолетовый.
 - Поканальная настройка глифов: раздельная раскраска четырех независимых сегментов или единый синхронный режим.

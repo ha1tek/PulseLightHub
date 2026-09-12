@@ -283,6 +283,104 @@
                         android:focusable="true" />
                 </LinearLayout>
 
+                <!-- CARD: BLUETOOTH LATENCY OFFSET -->
+                <LinearLayout
+                    android:id="@+id/card_bluetooth_delay"
+                    android:tag="themed_card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:orientation="vertical"
+                    android:background="@drawable/bg_card_dark"
+                    android:padding="14dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/tag_bluetooth_delay"
+                                android:tag="accent_tag"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="BLUETOOTH СИНХРОНИЗАЦИЯ"
+                                android:textColor="@color/volt_lime"
+                                android:textSize="11sp"
+                                android:letterSpacing="0.08"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tv_bluetooth_delay_desc"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="Компенсация задержки беспроводного звука"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="11sp" />
+                        </LinearLayout>
+
+                        <com.antigravity.pulselight.ModernSwitch
+                            android:id="@+id/switch_bluetooth_delay"
+                            android:layout_width="52dp"
+                            android:layout_height="32dp" />
+                    </LinearLayout>
+
+                    <!-- Slider Container (enabled/disabled dynamically) -->
+                    <LinearLayout
+                        android:id="@+id/layout_bluetooth_delay_controls"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:layout_marginTop="10dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+
+                            <TextView
+                                android:id="@+id/tv_bluetooth_delay_label"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="Задержка подсветки"
+                                android:textColor="@color/text_white"
+                                android:textSize="13sp" />
+
+                            <TextView
+                                android:id="@+id/tv_bluetooth_delay_value"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="150 мс"
+                                android:textColor="@color/volt_lime"
+                                android:textSize="13sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <SeekBar
+                            android:id="@+id/seek_bluetooth_delay"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:max="60"
+                            android:progress="15"
+                            android:progressDrawable="@drawable/seek_thick_track"
+                            android:thumb="@drawable/seek_thick_thumb"
+                            android:splitTrack="false"
+                            android:maxHeight="20dp"
+                            android:minHeight="20dp" />
+                    </LinearLayout>
+                </LinearLayout>
+
                 <!-- CARD: PRESETS (GLYPH STUDIO QUICK ACCESS) -->
                 <LinearLayout
                     android:tag="themed_card"

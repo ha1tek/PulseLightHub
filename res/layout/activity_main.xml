@@ -2264,60 +2264,6 @@
                     </LinearLayout>
                 </LinearLayout>
 
-                <!-- Hardware Daemon Status Card -->
-                <LinearLayout
-                    android:tag="themed_card"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:background="@drawable/bg_card_dark"
-                    android:padding="16dp">
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:id="@+id/tag_system_status"
-                            android:tag="accent_tag"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="СИСТЕМНЫЙ СТАТУС"
-                            android:textColor="@color/volt_lime"
-                            android:textSize="11sp"
-                            android:letterSpacing="0.08"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:id="@+id/tv_daemon_status"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
-                            android:text="Native Settings.Global • Offline"
-                            android:textColor="@color/volt_lime"
-                            android:textSize="13sp"
-                            android:textStyle="bold" />
-                    </LinearLayout>
-
-                    <TextView
-                        android:id="@+id/btn_reconnect_daemon"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:background="@drawable/bg_pill_dark"
-                        android:paddingStart="12dp"
-                        android:paddingEnd="12dp"
-                        android:paddingTop="6dp"
-                        android:paddingBottom="6dp"
-                        android:text="Проверить"
-                        android:textColor="@color/text_white"
-                        android:textSize="11sp"
-                        android:textStyle="bold"
-                        android:clickable="true" />
-                </LinearLayout>
 
             </LinearLayout>
         </ScrollView>

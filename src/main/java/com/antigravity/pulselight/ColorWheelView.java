@@ -252,6 +252,9 @@ public class ColorWheelView extends View {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
+        if (!isEnabled()) {
+            return false;
+        }
         float x = event.getX();
         float y = event.getY();
 

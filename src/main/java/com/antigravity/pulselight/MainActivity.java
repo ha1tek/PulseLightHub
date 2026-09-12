@@ -469,12 +469,14 @@ public class MainActivity extends Activity {
             customColorWheel.setOnColorChangeListener(new ColorWheelView.OnColorChangeListener() {
                 @Override
                 public void onColorChanged(int color, boolean fromUser) {
+                    if (GlyphColorManager.isRainbowMode(MainActivity.this)) return;
                     if (fromUser) {
                         applyTargetColor(color, false);
                     }
                 }
                 @Override
                 public void onColorChangeStop(int color) {
+                    if (GlyphColorManager.isRainbowMode(MainActivity.this)) return;
                     RealmeGlyphDriver.flashSegment(RealmeGlyphDriver.LED_ALL, color, 600);
                     applyTargetColor(color, false);
                 }
@@ -502,6 +504,7 @@ public class MainActivity extends Activity {
             colorSliderPicker.setOnColorChangeListener(new ColorSliderView.OnColorChangeListener() {
                 @Override
                 public void onColorChanged(int color, boolean fromUser) {
+                    if (GlyphColorManager.isRainbowMode(MainActivity.this)) return;
                     if (fromUser) {
                         applyTargetColor(color, true);
                     }
@@ -509,6 +512,7 @@ public class MainActivity extends Activity {
 
                 @Override
                 public void onColorChangeStop(int color) {
+                    if (GlyphColorManager.isRainbowMode(MainActivity.this)) return;
                     RealmeGlyphDriver.flashSegment(RealmeGlyphDriver.LED_ALL, color, 600);
                     applyTargetColor(color, true);
                 }
@@ -1584,6 +1588,8 @@ public class MainActivity extends Activity {
         for (View v : views) {
             if (v == null) continue;
             v.setEnabled(enabled);
+            v.setClickable(enabled);
+            v.setFocusable(enabled);
             if (animate) {
                 v.animate().alpha(targetAlpha).setDuration(220).start();
             } else {
@@ -1606,6 +1612,9 @@ public class MainActivity extends Activity {
     }
 
     private void applyTargetColor(int color, boolean updateWheel) {
+        if (GlyphColorManager.isRainbowMode(this)) {
+            return;
+        }
         if (colorSliderPicker != null) {
             colorSliderPicker.setColor(color);
         }

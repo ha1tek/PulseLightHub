@@ -51,9 +51,6 @@ import java.util.concurrent.Executors;
 public class MainActivity extends Activity {
 
     private static final String TAG = "PulseLightHub";
-    private static final String GRANT_COMMAND =
-            "adb shell pm grant com.antigravity.pulselight android.permission.WRITE_SECURE_SETTINGS";
-
     // Themeable Layout Containers
     private View layoutRoot;
     private View layoutTopHeader;
@@ -62,35 +59,19 @@ public class MainActivity extends Activity {
     private View navTabIndicator;
     private View pageStudioInner;
     private View pageEngineInner;
-    private boolean mFilterOnlyActive = false;
 
-    // Navigation Tabs
-    private TextView navTabApps;
+    // Navigation Tabs (2 tabs: 0 - Glyph Studio, 1 - Settings)
     private TextView navTabStudio;
     private TextView navTabEngine;
 
     private android.widget.FrameLayout pageContainer;
     private int mCurrentTab = 0;
-    private View pageApps;
     private View pageStudio;
     private View pageEngine;
 
     // Header Views
     private TextView tvPermStatus;
 
-    // --- Page 1: Apps ---
-    private ListView appListView;
-    private ProgressBar loadingProgress;
-    private TextView emptyView;
-    private View headerView;
-    private TextView btnReset;
-    private EditText etSearch;
-    private TextView tabAll;
-    private TextView tabActive;
-
-    private AppAdapter adapter;
-    private final List<AppItem> allAppItems = new ArrayList<>();
-    private final ExecutorService scanExecutor = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     // --- Page 2: Glyph Studio ---
@@ -174,31 +155,25 @@ public class MainActivity extends Activity {
 
         initViews();
         setupNavigation();
-        setupAppsPage();
         setupStudioPage();
         setupEnginePage();
 
         RealmeGlyphDriver.init(this);
-
-        checkPermission();
-        updateStatsAndPresets();
+        updateDriverStatusBadge();
 
         // Ensure engine is OFF on app launch - user must turn it ON manually
         AudioAnalyzer.setEngineEnabled(this, false);
         PulseAudioService.stopEngine(this);
 
-        // Start on Tab 0 (Players)
+        // Start on Tab 0 (Glyph Studio)
         selectTab(0);
-
-        mainHandler.postDelayed(this::loadApplications, 100);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         applyThemeColors(ThemeManager.getBackgroundColor(this), ThemeManager.getAccentColor(this));
-        checkPermission();
-        updateStatsAndPresets();
+        updateDriverStatusBadge();
         syncColorTargetUI();
         updateEngineControls();
         attachFrameListener();
@@ -220,7 +195,7 @@ public class MainActivity extends Activity {
                 if (shouldUpdateDiagram) {
                     mLastDiagramUpdateTime = now;
                     int accentColor = ThemeManager.getAccentColor(MainActivity.this);
-                    if (mCurrentTab == 1) {
+                    if (mCurrentTab == 0) {
                         if (studioSpectrumVisualizer != null) {
                             studioSpectrumVisualizer.setBarColor(accentColor);
                             studioSpectrumVisualizer.updateData(result);
@@ -228,7 +203,7 @@ public class MainActivity extends Activity {
                         if (tvSpectrumRmsVal != null) {
                             tvSpectrumRmsVal.setText(String.format(java.util.Locale.US, "RMS: %d%%", (int) (result.rmsLoudness * 100)));
                         }
-                    } else if (mCurrentTab == 2) {
+                    } else if (mCurrentTab == 1) {
                         if (engineSpectrumVisualizer != null) {
                             engineSpectrumVisualizer.setBarColor(accentColor);
                             engineSpectrumVisualizer.updateData(result);
@@ -236,7 +211,7 @@ public class MainActivity extends Activity {
                     }
                 }
 
-                if (glyphVectorView != null && (mCurrentTab == 1 || mCurrentTab == 2)) {
+                if (glyphVectorView != null && (mCurrentTab == 0 || mCurrentTab == 1)) {
                     if (result.activeLedMask != 0) {
                         glyphVectorView.setSegmentIntensity(result.activeLedMask, result.intensity, currentColor);
                     } else {
@@ -264,31 +239,26 @@ public class MainActivity extends Activity {
 
         tvPermStatus = findViewById(R.id.tv_perm_status);
 
-        navTabApps = findViewById(R.id.nav_tab_apps);
         navTabStudio = findViewById(R.id.nav_tab_studio);
         navTabEngine = findViewById(R.id.nav_tab_engine);
 
         pageContainer = findViewById(R.id.page_container);
-        pageApps = findViewById(R.id.page_apps);
         pageStudio = findViewById(R.id.page_studio);
         pageEngine = findViewById(R.id.page_engine);
 
         pageStudioInner = findViewById(R.id.page_studio_inner);
         pageEngineInner = findViewById(R.id.page_engine_inner);
 
-        // Keep all views attached in page_container, switch strictly via visibility
-        if (pageApps != null) pageApps.setVisibility(View.VISIBLE);
-        if (pageStudio != null) pageStudio.setVisibility(View.GONE);
+        if (pageStudio != null) pageStudio.setVisibility(View.VISIBLE);
         if (pageEngine != null) pageEngine.setVisibility(View.GONE);
     }
 
     // =========================================================================
-    // NAVIGATION (Zero tearing - strictly setVisibility)
+    // NAVIGATION (2 Tabs: 0 - Glyph Studio, 1 - Settings)
     // =========================================================================
     private void setupNavigation() {
-        navTabApps.setOnClickListener(v -> selectTab(0));
-        navTabStudio.setOnClickListener(v -> selectTab(1));
-        navTabEngine.setOnClickListener(v -> selectTab(2));
+        navTabStudio.setOnClickListener(v -> selectTab(0));
+        navTabEngine.setOnClickListener(v -> selectTab(1));
     }
 
     private void applyButtonFeedback(View view) {
@@ -309,9 +279,8 @@ public class MainActivity extends Activity {
 
     private View getPageView(int tabIndex) {
         switch (tabIndex) {
-            case 0: return pageApps;
-            case 1: return pageStudio;
-            case 2: return pageEngine;
+            case 0: return pageStudio;
+            case 1: return pageEngine;
             default: return null;
         }
     }
@@ -347,17 +316,16 @@ public class MainActivity extends Activity {
                     .setDuration(200)
                     .start();
         } else {
-            if (pageApps != null) pageApps.setVisibility(index == 0 ? View.VISIBLE : View.GONE);
-            if (pageStudio != null) pageStudio.setVisibility(index == 1 ? View.VISIBLE : View.GONE);
-            if (pageEngine != null) pageEngine.setVisibility(index == 2 ? View.VISIBLE : View.GONE);
+            if (pageStudio != null) pageStudio.setVisibility(index == 0 ? View.VISIBLE : View.GONE);
+            if (pageEngine != null) pageEngine.setVisibility(index == 1 ? View.VISIBLE : View.GONE);
         }
 
-        if (index == 1) {
+        if (index == 0) {
             syncColorTargetUI();
             updateStudioSpectrumUI();
             updateStudioPatternsUI();
             updatePresetDropdownUI();
-        } else if (index == 2) {
+        } else if (index == 1) {
             updateEngineControls();
             if (engineSpectrumVisualizer != null && mAudioAnalyzer != null) {
                 engineSpectrumVisualizer.setSpectrumMode(mAudioAnalyzer.getSpectrumMode());
@@ -382,7 +350,7 @@ public class MainActivity extends Activity {
             return;
         }
 
-        int tabWidth = usableWidth / 3;
+        int tabWidth = usableWidth / 2;
         ViewGroup.LayoutParams lp = navTabIndicator.getLayoutParams();
         if (lp.width != tabWidth) {
             lp.width = tabWidth;
@@ -391,7 +359,7 @@ public class MainActivity extends Activity {
 
         float targetX = navTabsLayout.getPaddingLeft() + newIndex * tabWidth;
 
-        TextView[] tabs = new TextView[]{navTabApps, navTabStudio, navTabEngine};
+        TextView[] tabs = new TextView[]{navTabStudio, navTabEngine};
         if (animate) {
             navTabIndicator.animate()
                     .translationX(targetX)
@@ -432,201 +400,21 @@ public class MainActivity extends Activity {
         }
     }
 
-    // =========================================================================
-    // PAGE 1: APPS WHITELIST
-    // =========================================================================
-    private void setupAppsPage() {
-        appListView = findViewById(R.id.app_list);
-        loadingProgress = findViewById(R.id.loading_progress);
-        emptyView = findViewById(R.id.empty_view);
-
-        headerView = getLayoutInflater().inflate(R.layout.header_main, appListView, false);
-        btnReset = headerView.findViewById(R.id.btn_reset);
-        etSearch = headerView.findViewById(R.id.et_search);
-        tabAll = headerView.findViewById(R.id.tab_all);
-        tabActive = headerView.findViewById(R.id.tab_active);
-
-        appListView.addHeaderView(headerView, null, false);
-
-        tvPermStatus.setOnClickListener(v -> {
-            if (!PulseLightManager.hasPermission(this)) {
-                showPermissionDialog();
-            } else {
-                Toast.makeText(this, "Системные права WRITE_SECURE_SETTINGS активны", Toast.LENGTH_SHORT).show();
-            }
-        });
-
-        btnReset.setOnClickListener(v -> showResetDialog());
-
-        tabAll.setOnClickListener(v -> {
-            mFilterOnlyActive = false;
-            updateFilterTabsUI();
-            if (adapter != null) adapter.setFilterMode(false);
-        });
-
-        tabActive.setOnClickListener(v -> {
-            mFilterOnlyActive = true;
-            updateFilterTabsUI();
-            if (adapter != null) adapter.setFilterMode(true);
-        });
-
-        updateFilterTabsUI();
-
-        etSearch.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-                if (adapter != null) adapter.filterQuery(s.toString());
-            }
-
-            @Override
-            public void afterTextChanged(Editable s) {}
-        });
-    }
-
-    private void updateFilterTabsUI() {
-        if (tabAll == null || tabActive == null) return;
-        updatePill(tabAll, !mFilterOnlyActive);
-        updatePill(tabActive, mFilterOnlyActive);
-    }
-
-    private void checkPermission() {
-        boolean secGranted = PulseLightManager.hasPermission(this);
+    private void updateDriverStatusBadge() {
         int accent = ThemeManager.getAccentColor(this);
-
-        if (secGranted) {
+        if (tvPermStatus != null) {
             tvPermStatus.setText("ACTIVE");
             tvPermStatus.setBackground(ThemeManager.createPillDrawable(accent, 999, this));
             tvPermStatus.setTextColor(ThemeManager.getContrastTextColor(accent));
-        } else {
-            tvPermStatus.setText("ТРЕБУЕТСЯ ADB");
-            tvPermStatus.setBackgroundResource(R.drawable.bg_badge_inactive);
-            tvPermStatus.setTextColor(getColor(R.color.status_red));
+            tvPermStatus.setOnClickListener(v -> {
+                Toast.makeText(this, RealmeGlyphDriver.getStatus(), Toast.LENGTH_SHORT).show();
+            });
         }
 
         if (tvDaemonStatus != null) {
             tvDaemonStatus.setText(RealmeGlyphDriver.getStatus());
-            tvDaemonStatus.setTextColor(RealmeGlyphDriver.isConnected() ? accent : (secGranted ? getColor(R.color.text_secondary) : getColor(R.color.status_red)));
+            tvDaemonStatus.setTextColor(accent);
         }
-    }
-
-    private void showPermissionDialog() {
-        new AlertDialog.Builder(this)
-                .setTitle(R.string.perm_dialog_title)
-                .setMessage(R.string.perm_dialog_msg)
-                .setPositiveButton(R.string.perm_copy, (dialog, which) -> {
-                    ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-                    ClipData clip = ClipData.newPlainText("ADB Grant Command", GRANT_COMMAND);
-                    if (clipboard != null) clipboard.setPrimaryClip(clip);
-                    Toast.makeText(this, R.string.toast_copied, Toast.LENGTH_SHORT).show();
-                })
-                .setNeutralButton(R.string.perm_check, (dialog, which) -> checkPermission())
-                .setNegativeButton(R.string.btn_cancel, null)
-                .show();
-    }
-
-    private void showResetDialog() {
-        new AlertDialog.Builder(this)
-                .setTitle(R.string.reset_confirm_title)
-                .setMessage(R.string.reset_confirm_msg)
-                .setPositiveButton(R.string.btn_reset, (dialog, which) -> {
-                    PulseLightManager.resetToStock(this);
-                    loadApplications();
-                    Toast.makeText(this, "Заводской список восстановлен!", Toast.LENGTH_SHORT).show();
-                })
-                .setNegativeButton(R.string.btn_cancel, null)
-                .show();
-    }
-
-    private void loadApplications() {
-        loadingProgress.setVisibility(View.VISIBLE);
-        emptyView.setVisibility(View.GONE);
-
-        scanExecutor.execute(() -> {
-            try {
-                PackageManager pm = getPackageManager();
-                Map<String, Boolean> musicAppsMap = PulseLightManager.getMusicAppsMap(this);
-
-                Intent mainIntent = new Intent(Intent.ACTION_MAIN, null);
-                mainIntent.addCategory(Intent.CATEGORY_LAUNCHER);
-                List<ResolveInfo> launcherApps = pm.queryIntentActivities(mainIntent, 0);
-
-                Set<String> addedPackages = new HashSet<>();
-                List<AppItem> items = new ArrayList<>();
-
-                for (ResolveInfo ri : launcherApps) {
-                    if (ri.activityInfo == null) continue;
-                    String pkg = ri.activityInfo.packageName;
-                    if (addedPackages.contains(pkg)) continue;
-                    addedPackages.add(pkg);
-
-                    String label = ri.loadLabel(pm).toString();
-                    boolean enabled = Boolean.TRUE.equals(musicAppsMap.get(pkg));
-                    boolean isSystem = (ri.activityInfo.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0;
-
-                    items.add(new AppItem(label, pkg, ri, null, enabled, isSystem));
-                }
-
-                for (String whitelistedPkg : musicAppsMap.keySet()) {
-                    if (!addedPackages.contains(whitelistedPkg)) {
-                        try {
-                            ApplicationInfo ai = pm.getApplicationInfo(whitelistedPkg, 0);
-                            String label = pm.getApplicationLabel(ai).toString();
-                            boolean enabled = Boolean.TRUE.equals(musicAppsMap.get(whitelistedPkg));
-                            items.add(new AppItem(label, whitelistedPkg, null, null, enabled, true));
-                            addedPackages.add(whitelistedPkg);
-                        } catch (PackageManager.NameNotFoundException ignored) {}
-                    }
-                }
-
-                Collections.sort(items, (a, b) -> {
-                    if (a.isEnabled() != b.isEnabled()) {
-                        return a.isEnabled() ? -1 : 1;
-                    }
-                    return a.getAppName().compareToIgnoreCase(b.getAppName());
-                });
-
-                runOnUiThread(() -> {
-                    allAppItems.clear();
-                    allAppItems.addAll(items);
-                    adapter = new AppAdapter(this, allAppItems, (item, isEnabled) -> {
-                        updateStatsAndPresets();
-                        Toast.makeText(this, (isEnabled ? "Включено: " : "Отключено: ") + item.getAppName(), Toast.LENGTH_SHORT).show();
-                    });
-                    adapter.setOnFilterResultListener((total, filtered) -> {
-                        emptyView.setVisibility(filtered == 0 ? View.VISIBLE : View.GONE);
-                    });
-                    appListView.setAdapter(adapter);
-                    loadingProgress.setVisibility(View.GONE);
-                    updateStatsAndPresets();
-
-                    scanExecutor.execute(() -> {
-                        android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND);
-                        PackageManager packageManager = getPackageManager();
-                        for (AppItem appItem : allAppItems) {
-                            if (appItem.getIcon() == null) {
-                                appItem.loadIconSync(packageManager);
-                            }
-                        }
-                        runOnUiThread(() -> {
-                            if (adapter != null) adapter.notifyDataSetChanged();
-                        });
-                    });
-                });
-
-            } catch (Throwable t) {
-                Log.e(TAG, "Error loading applications", t);
-                runOnUiThread(() -> loadingProgress.setVisibility(View.GONE));
-            }
-        });
-    }
-
-    private void updateStatsAndPresets() {
-        int activeCount = PulseLightManager.getActiveCount(this);
-        tabAll.setText("Все • " + allAppItems.size());
-        tabActive.setText("Только активные • " + activeCount);
     }
 
     private static int intervalProgressToMs(int progress) {
@@ -1854,8 +1642,8 @@ public class MainActivity extends Activity {
         if (btnReconnectDaemon != null) {
             btnReconnectDaemon.setOnClickListener(v -> {
                 RealmeGlyphDriver.connectAsync();
-                checkPermission();
-                mainHandler.postDelayed(this::checkPermission, 600);
+                updateDriverStatusBadge();
+                mainHandler.postDelayed(this::updateDriverStatusBadge, 600);
                 Toast.makeText(this, "Проверка состояния драйвера...", Toast.LENGTH_SHORT).show();
             });
         }
@@ -1933,8 +1721,6 @@ public class MainActivity extends Activity {
         if (layoutTopHeader != null) layoutTopHeader.setBackgroundColor(bgColor);
         if (layoutNavBar != null) layoutNavBar.setBackgroundColor(bgColor);
         if (pageContainer != null) pageContainer.setBackgroundColor(bgColor);
-        if (pageApps != null) pageApps.setBackgroundColor(bgColor);
-        if (appListView != null) appListView.setBackgroundColor(bgColor);
         if (pageStudio != null) pageStudio.setBackgroundColor(bgColor);
         if (pageStudioInner != null) pageStudioInner.setBackgroundColor(Color.TRANSPARENT);
         if (pageEngine != null) pageEngine.setBackgroundColor(bgColor);
@@ -1954,8 +1740,6 @@ public class MainActivity extends Activity {
 
         // 4. Accent elements:
         animateTabSwitch(mCurrentTab, mCurrentTab, false);
-
-        updateFilterTabsUI();
 
         if (mAudioAnalyzer != null) {
             int studioMode = mAudioAnalyzer.getStudioAnalysisMode();
@@ -1981,7 +1765,7 @@ public class MainActivity extends Activity {
         }
 
         updatePresetDropdownUI();
-        checkPermission();
+        updateDriverStatusBadge();
         updateAccentElements(accentColor);
         applyAccentTheming(layoutRoot, accentColor);
         if (btnRandomConfig != null) {
@@ -1992,9 +1776,6 @@ public class MainActivity extends Activity {
             btnStudioAddPreset.setTextColor(ThemeManager.getContrastTextColor(accentColor));
         }
         updateStudioPatternsUI();
-        if (adapter != null) {
-            adapter.notifyDataSetChanged();
-        }
     }
 
     private void applyAccentTheming(View view, int accentColor) {
@@ -2087,14 +1868,10 @@ public class MainActivity extends Activity {
             }
         }
 
-        if (loadingProgress != null) {
-            loadingProgress.setIndeterminateTintList(ColorStateList.valueOf(accentColor));
-        }
-
         if (tvEngineStatusDesc != null && AudioAnalyzer.isEngineEnabled(this)) {
             tvEngineStatusDesc.setTextColor(accentColor);
         }
-        if (tvDaemonStatus != null && PulseLightManager.hasPermission(this)) {
+        if (tvDaemonStatus != null) {
             tvDaemonStatus.setTextColor(accentColor);
         }
     }
@@ -2615,9 +2392,8 @@ public class MainActivity extends Activity {
         }
 
         if (tvDaemonStatus != null) {
-            boolean hasPerm = PulseLightManager.hasPermission(this);
-            tvDaemonStatus.setText(hasPerm ? "Аппаратный драйвер: Готов к работе ✓" : "Требуется WRITE_SECURE_SETTINGS");
-            tvDaemonStatus.setTextColor(hasPerm ? ThemeManager.getAccentColor(this) : getColor(R.color.status_red));
+            tvDaemonStatus.setText(RealmeGlyphDriver.getStatus());
+            tvDaemonStatus.setTextColor(ThemeManager.getAccentColor(this));
         }
 
         if (switchEngineBandThreshold != null) {

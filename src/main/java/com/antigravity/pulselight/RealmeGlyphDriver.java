@@ -122,15 +122,12 @@ public class RealmeGlyphDriver {
 
     public static String getStatus() {
         if (sPowerBinder != null) {
-            return "Нативный драйвер: Прямой доступ (Без отладки) ✓";
+            return "Нативный драйвер: Прямой доступ — Готов к работе ✓";
         }
         if (sIsConnected) {
-            return "Аппаратный драйвер: Активен (Порт 49152) ✓";
+            return "Аппаратный драйвер: Активен — Порт 49152 ✓";
         }
-        if (sAppContext != null && PulseLightManager.hasPermission(sAppContext)) {
-            return "Ожидание службы подсветки...";
-        }
-        return "Требуется WRITE_SECURE_SETTINGS";
+        return "Аппаратный драйвер: Инициализация";
     }
 
     public static synchronized void connectAsync() {

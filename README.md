@@ -1,4 +1,4 @@
-﻿# Pulse Light Hub
+# Pulse Light Hub
 
 [![Platform](https://img.shields.io/badge/Platform-Android_8.0+-3DDC84.svg?style=flat-square)](https://android.com)
 [![Device](https://img.shields.io/badge/Device-Realme_GT_5_Awakening_Halo-FF6600.svg?style=flat-square)](https://www.realme.com)

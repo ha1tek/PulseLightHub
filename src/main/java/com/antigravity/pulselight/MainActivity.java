@@ -28,6 +28,7 @@ import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.AccelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.EditText;
 import android.widget.FrameLayout;
@@ -77,6 +78,11 @@ public class MainActivity extends Activity {
     // --- Page 2: Glyph Studio ---
     private RealmeGlyphView glyphVectorView;
     private ColorSliderView colorSliderPicker;
+    private TextView btnToggleCustomColor;
+    private LinearLayout layoutCustomColorPicker;
+    private ColorWheelView customColorWheel;
+    private ModernSwitch switchRainbow;
+    private boolean mIsCustomColorExpanded = false;
     private TextView btnPulseAll;
     private TextView btnTurnOff;
 
@@ -448,18 +454,63 @@ public class MainActivity extends Activity {
         colorSliderPicker = findViewById(R.id.color_slider_view);
         btnTurnOff = findViewById(R.id.btn_turn_off_hal);
 
+        // Custom Color Toggle & Wheel
+        btnToggleCustomColor = findViewById(R.id.btn_toggle_custom_color);
+        layoutCustomColorPicker = findViewById(R.id.layout_custom_color_picker);
+        customColorWheel = findViewById(R.id.custom_color_wheel);
+        switchRainbow = findViewById(R.id.switch_rainbow);
+
+        if (btnToggleCustomColor != null) {
+            applyButtonFeedback(btnToggleCustomColor);
+            btnToggleCustomColor.setOnClickListener(v -> toggleCustomColorPicker());
+        }
+
+        if (customColorWheel != null) {
+            customColorWheel.setOnColorChangeListener(new ColorWheelView.OnColorChangeListener() {
+                @Override
+                public void onColorChanged(int color, boolean fromUser) {
+                    if (fromUser) {
+                        applyTargetColor(color, false);
+                    }
+                }
+                @Override
+                public void onColorChangeStop(int color) {
+                    RealmeGlyphDriver.flashSegment(RealmeGlyphDriver.LED_ALL, color, 600);
+                    applyTargetColor(color, false);
+                }
+            });
+        }
+
+        if (switchRainbow != null) {
+            boolean isRainbow = GlyphColorManager.isRainbowMode(this);
+            switchRainbow.setChecked(isRainbow);
+            updateRainbowControlsUI(isRainbow, false);
+            switchRainbow.setOnCheckedChangeListener((view, isChecked) -> {
+                GlyphColorManager.setRainbowMode(this, isChecked);
+                updateRainbowControlsUI(isChecked, true);
+                if (isChecked) {
+                    int rand = GlyphColorManager.getNextRainbowColor();
+                    RealmeGlyphDriver.flashSegment(RealmeGlyphDriver.LED_ALL, rand, 400);
+                    if (glyphVectorView != null) glyphVectorView.setPreviewColor(rand);
+                } else {
+                    syncColorTargetUI();
+                }
+            });
+        }
+
         if (colorSliderPicker != null) {
             colorSliderPicker.setOnColorChangeListener(new ColorSliderView.OnColorChangeListener() {
                 @Override
                 public void onColorChanged(int color, boolean fromUser) {
                     if (fromUser) {
-                        applyTargetColor(color);
+                        applyTargetColor(color, true);
                     }
                 }
 
                 @Override
                 public void onColorChangeStop(int color) {
-                    applyTargetColor(color);
+                    RealmeGlyphDriver.flashSegment(RealmeGlyphDriver.LED_ALL, color, 600);
+                    applyTargetColor(color, true);
                 }
             });
         }
@@ -475,6 +526,8 @@ public class MainActivity extends Activity {
                 Toast.makeText(this, "Подсветка выключена", Toast.LENGTH_SHORT).show();
             });
         }
+
+        syncColorTargetUI();
 
         // Preset Dropdown
         layoutPresetDropdown = findViewById(R.id.layout_preset_dropdown);
@@ -1484,6 +1537,61 @@ public class MainActivity extends Activity {
         updateBandPatternButtonsUI();
     }
 
+    private void toggleCustomColorPicker() {
+        if (layoutCustomColorPicker == null) return;
+        mIsCustomColorExpanded = !mIsCustomColorExpanded;
+
+        if (mIsCustomColorExpanded) {
+            layoutCustomColorPicker.setVisibility(View.VISIBLE);
+            layoutCustomColorPicker.setAlpha(0f);
+            layoutCustomColorPicker.setTranslationY(-20f);
+            layoutCustomColorPicker.animate()
+                    .alpha(1f)
+                    .translationY(0f)
+                    .setDuration(260)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .start();
+            if (btnToggleCustomColor != null) {
+                btnToggleCustomColor.setText("Скрыть свой цвет");
+            }
+            int curColor = GlyphColorManager.getUnifiedColor(this);
+            if (customColorWheel != null) {
+                customColorWheel.setColor(curColor);
+            }
+        } else {
+            layoutCustomColorPicker.animate()
+                    .alpha(0f)
+                    .translationY(-20f)
+                    .setDuration(200)
+                    .setInterpolator(new AccelerateInterpolator())
+                    .withEndAction(() -> {
+                        if (layoutCustomColorPicker != null) {
+                            layoutCustomColorPicker.setVisibility(View.GONE);
+                        }
+                    })
+                    .start();
+            if (btnToggleCustomColor != null) {
+                btnToggleCustomColor.setText("Свой цвет");
+            }
+        }
+    }
+
+    private void updateRainbowControlsUI(boolean isRainbow, boolean animate) {
+        float targetAlpha = isRainbow ? 0.35f : 1.0f;
+        boolean enabled = !isRainbow;
+
+        View[] views = new View[]{colorSliderPicker, customColorWheel};
+        for (View v : views) {
+            if (v == null) continue;
+            v.setEnabled(enabled);
+            if (animate) {
+                v.animate().alpha(targetAlpha).setDuration(220).start();
+            } else {
+                v.setAlpha(targetAlpha);
+            }
+        }
+    }
+
     private void saveTargetColor(int color) {
         PulseLightManager.setMusicColor(this, color);
         PulseLightManager.setMusicFlickerColor(this, color);
@@ -1491,9 +1599,18 @@ public class MainActivity extends Activity {
         GlyphColorManager.setUnifiedColor(this, color);
     }
 
+    private long mLastHardwareFlashTime = 0;
+
     private void applyTargetColor(int color) {
+        applyTargetColor(color, true);
+    }
+
+    private void applyTargetColor(int color, boolean updateWheel) {
         if (colorSliderPicker != null) {
             colorSliderPicker.setColor(color);
+        }
+        if (updateWheel && customColorWheel != null) {
+            customColorWheel.setColor(color);
         }
         if (glyphVectorView != null) {
             glyphVectorView.setPreviewColor(color);
@@ -1501,7 +1618,11 @@ public class MainActivity extends Activity {
         if (studioSpectrumVisualizer != null) {
             studioSpectrumVisualizer.setBarColor(color);
         }
-        RealmeGlyphDriver.flashSegment(RealmeGlyphDriver.LED_ALL, color, 600);
+        long now = System.currentTimeMillis();
+        if (now - mLastHardwareFlashTime > 45) {
+            mLastHardwareFlashTime = now;
+            RealmeGlyphDriver.flashSegment(RealmeGlyphDriver.LED_ALL, color, 600);
+        }
         saveTargetColor(color);
     }
 
@@ -1509,6 +1630,9 @@ public class MainActivity extends Activity {
         int color = GlyphColorManager.getUnifiedColor(this);
         if (colorSliderPicker != null) {
             colorSliderPicker.setColor(color);
+        }
+        if (customColorWheel != null) {
+            customColorWheel.setColor(color);
         }
         if (glyphVectorView != null) {
             glyphVectorView.updateColorsFromManager();

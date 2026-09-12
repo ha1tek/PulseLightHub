@@ -78,8 +78,8 @@ public class ColorSliderView extends View {
             new ColorItem(0xFFA820FF, 0xFFA820FF, "Фиолетовый"),
 
             // --- РЯД 3: 5 ДВУХЦВЕТНЫХ ГРАДИЕНТОВ (СОБРАНЫ ВМЕСТЕ) ---
-            // 10: Розовый двухцветный (Cyber Pink -> Deep Blue Gradient)
-            new ColorItem(0xFFFF2D7A, 0xFFFF2D7A, 0xFF3D5AFE, "Розовый (Градиент)"),
+            // 10: Розовый двухцветный: Cyber Pink и Deep Blue Gradient
+            new ColorItem(0xFFFFFFF0, 0xFFFF2D7A, 0xFF3D5AFE, "Розовый: градиент"),
             // 11: Оранжево-Розовый дуэт (Orange-Pink Gradient)
             new ColorItem(0xFFFFFFF1, 0xFFFF9500, 0xFFFF2D7A, "Оранжево-Розовый"),
             // 12: Сине-Желтый дуэт (Blue-Yellow Gradient)

@@ -31,63 +31,52 @@ public class ColorWheelView extends View {
     private float mWheelThickness = 0f;
     private final RectF mWheelRect = new RectF();
 
-    // Exact color gradient palette and positions from Realme GT 5 / ColorOS BreathingLightColorPickRound
+    // Natural, harmonious color gradient matching GT 5 HAL hardware profiles:
+    // Clockwise from 3 o'clock:
+    // 3 o'clock: White transition mark
+    // 4 o'clock: Orange
+    // 5:30 o'clock: Yellow
+    // 7:30 o'clock: Green
+    // 9:00 o'clock: Cyan / Light Blue
+    // 10:30 o'clock: True Blue
+    // 11:00 o'clock: Royal Ultramarine (ColorOS #73BBFF Always-On)
+    // 11:30 o'clock: Electric Indigo (ColorOS #72BBFF)
+    // 12:00 o'clock: Deep Velvet Violet (ColorOS #71BBFF)
+    // 1:00 o'clock: Magenta / Pink (ColorOS #FFA8FF)
+    // 2:15 o'clock: Red
+    // 3:00 o'clock: White
     public static final int[] DEFAULT_COLORS = new int[]{
-            -1,         // 0xFFFFFFFF (White transition point)
-            -32768,     // 0xFFFF8000 (Orange)
-            -32768,     // 0xFFFF8000 (Orange)
-            -256,       // 0xFFFFFF00 (Yellow)
-            -8388864,   // 0xFF7FFF00 (Chartreuse)
-            -16711936,  // 0xFF00FF00 (Green)
-            -16711809,  // 0xFF00FF7F (Spring Green)
-            -16711681,  // 0xFF00FFFF (Cyan)
-            -16744193,  // 0xFF007FFF (Azure)
-            -8388353,   // 0xFF7F00FF (Violet)
-            -65281,     // 0xFFFF00FF (Magenta)
-            -65409,     // 0xFFFF007F (Rose)
-            -65536,     // 0xFFFF0000 (Red)
-            -1          // 0xFFFFFFFF (White)
+            0xFFFDFFFB, // 0: White at 3 o'clock (0°)
+            0xFFFDFFFB, // 1: White margin (~11°)
+            0xFFFF8800, // 2: Orange (~36°)
+            0xFFFFEA00, // 3: Yellow (~75°)
+            0xFF00E676, // 4: Green (~137°)
+            0xFF00E5FF, // 5: Cyan / Light Blue (~184°)
+            0xFF2979FF, // 6: True Blue (~230°)
+            0xFF191CDD, // 7: Royal Ultramarine — ColorOS #73BBFF Always-On (~255°)
+            0xFF5C27F5, // 8: Electric Indigo — ColorOS #72BBFF (~275°)
+            0xFFA820FF, // 9: Deep Velvet Violet — ColorOS #71BBFF (~295°)
+            0xFFFF2D7A, // 10: Magenta / Pink — ColorOS #FFA8FF (~322°)
+            0xFFFF3B30, // 11: Red (~342°)
+            0xFFFDFFFB, // 12: White margin (~351°)
+            0xFFFDFFFB  // 13: White (360°)
     };
 
     public static final float[] GRADIENT_POSITIONS = new float[]{
-            0.005f, 0.02f, 0.09f, 0.18f, 0.27f, 0.36f, 0.45f, 0.55f, 0.64f, 0.73f, 0.82f, 0.91f, 0.99f, 1.0f
-    };
-
-    // The 26 hardware-calibrated colors recognized by Qualcomm Lights HAL (/odm/etc/misc/oplusLights.xml)
-    public static final int[] OPTION_COLORS = new int[]{
-            0xFFFDFFFB, // 0: White
-            0xFFFFBE15, // 1: Orange
-            0xFFFFBE14, // 2: Orange 1
-            0xFFFFBE13, // 3: Orange 2
-            0xFFFFBE12, // 4: Orange 3
-            0xFFFFBE11, // 5: Orange 4
-            0xFFFFFC3C, // 6: Yellow
-            0xFFFFFC3B, // 7: Yellow 1
-            0xFFFFFC3A, // 8: Yellow 2
-            0xFFFFFC39, // 9: Yellow 3
-            0xFF00FF1E, // 10: Green
-            0xFF00FF1D, // 11: Green 1
-            0xFF00FF1C, // 12: Green 2
-            0xFF00FF1B, // 13: Green 3
-            0xFF00FF1A, // 14: Green 4
-            0xFF00FF19, // 15: Green 5
-            0xFF00FF18, // 16: Green 6
-            0xFF74BBFF, // 17: Blue
-            0xFF73BBFF, // 18: Blue 1
-            0xFF72BBFF, // 19: Blue 2
-            0xFF71BBFF, // 20: Blue 3 (Realme GT Blue)
-            0xFFFFA8FF, // 21: Purple
-            0xFFFFA7FF, // 22: Purple 1
-            0xFFFF8173, // 23: Red 2
-            0xFFFF8174, // 24: Red 1
-            0xFFFF8175  // 25: Red
-    };
-
-    // Thresholds from ColorOS BreathingLightMultiLedConstantUtils.MULTI_LED_RING_PERCENT
-    public static final float[] MULTI_LED_RING_PERCENT = new float[]{
-            0.015f, 0.095f, 0.1225f, 0.15f, 0.1775f, 0.2f, 0.245f, 0.26f, 0.3f, 0.46f,
-            0.5f, 0.53f, 0.56f, 0.59f, 0.62f, 0.66f, 0.7f, 0.73f, 0.76f, 0.79f,
-            0.82f, 0.86f, 0.9f, 0.94f, 0.98f, 0.995f, 1.0f
+            0.000f, // White (0°)
+            0.030f, // White margin (~11°)
+            0.100f, // Orange (~36°)
+            0.210f, // Yellow (~75°)
+            0.380f, // Green (~137°)
+            0.510f, // Cyan / Light Blue (~184°)
+            0.640f, // True Blue (~230°)
+            0.708f, // Royal Ultramarine (~255°)
+            0.764f, // Electric Indigo (~275°)
+            0.820f, // Deep Velvet Violet (~295°)
+            0.895f, // Magenta / Pink (~322°)
+            0.950f, // Red (~342°)
+            0.975f, // White margin (~351°)
+            1.000f  // White (360°)
     };
 
     public ColorWheelView(Context context) {
@@ -127,7 +116,7 @@ public class ColorWheelView extends View {
     }
 
     public void setColor(int color) {
-        mSelectedColor = toNearestHardwareColor(color);
+        mSelectedColor = color;
         mAngle = findAngleForColor(mSelectedColor);
         invalidate();
     }
@@ -137,84 +126,75 @@ public class ColorWheelView extends View {
     }
 
     /**
-     * Map angle (0 .. 2*PI) strictly to one of the 26 hardware calibrated colors
-     * matching BreathingLightColorUtils.getColorsIndex.
+     * Linearly interpolates the exact color at any angle (0 .. 2*PI).
+     * Guaranteed to match the visual pixel color drawn on the sweep gradient.
      */
-    public static int getCalibratedColorForAngle(float angleRad) {
+    public static int getColorForAngle(float angleRad) {
         float f = (float) (angleRad / (2.0 * Math.PI));
         while (f < 0.0f) f += 1.0f;
         while (f >= 1.0f) f -= 1.0f;
 
-        if (f <= MULTI_LED_RING_PERCENT[0] || f >= MULTI_LED_RING_PERCENT[MULTI_LED_RING_PERCENT.length - 1]) {
-            return OPTION_COLORS[0];
-        }
-        if (f > MULTI_LED_RING_PERCENT[MULTI_LED_RING_PERCENT.length - 2] && f < MULTI_LED_RING_PERCENT[MULTI_LED_RING_PERCENT.length - 1]) {
-            return OPTION_COLORS[OPTION_COLORS.length - 1];
-        }
-        for (int i = 1; i < MULTI_LED_RING_PERCENT.length; i++) {
-            if (f > MULTI_LED_RING_PERCENT[i - 1] && f <= MULTI_LED_RING_PERCENT[i]) {
-                int idx = Math.min(i, OPTION_COLORS.length - 1);
-                return OPTION_COLORS[idx];
+        for (int i = 0; i < GRADIENT_POSITIONS.length - 1; i++) {
+            float p0 = GRADIENT_POSITIONS[i];
+            float p1 = GRADIENT_POSITIONS[i + 1];
+            if (f >= p0 && f <= p1) {
+                float t = (f - p0) / (p1 - p0);
+                return interpolateColor(DEFAULT_COLORS[i], DEFAULT_COLORS[i + 1], t);
             }
         }
-        return OPTION_COLORS[0];
+        return DEFAULT_COLORS[0];
+    }
+
+    public static int interpolateColor(int c0, int c1, float t) {
+        t = Math.max(0.0f, Math.min(1.0f, t));
+        int a0 = (c0 >> 24) & 0xFF;
+        int r0 = (c0 >> 16) & 0xFF;
+        int g0 = (c0 >> 8) & 0xFF;
+        int b0 = c0 & 0xFF;
+
+        int a1 = (c1 >> 24) & 0xFF;
+        int r1 = (c1 >> 16) & 0xFF;
+        int g1 = (c1 >> 8) & 0xFF;
+        int b1 = c1 & 0xFF;
+
+        int a = (int) (a0 + (a1 - a0) * t);
+        int r = (int) (r0 + (r1 - r0) * t);
+        int g = (int) (g0 + (g1 - g0) * t);
+        int b = (int) (b0 + (b1 - b0) * t);
+
+        return (a << 24) | (r << 16) | (g << 8) | b;
     }
 
     public static int toNearestHardwareColor(int targetColor) {
+        return targetColor;
+    }
+
+    public static float findAngleForColor(int targetColor) {
         int tr = (targetColor >> 16) & 0xFF;
         int tg = (targetColor >> 8) & 0xFF;
         int tb = targetColor & 0xFF;
 
-        int bestColor = OPTION_COLORS[20]; // Default GT Blue
+        int bestDeg = 0;
         int minDistance = Integer.MAX_VALUE;
 
-        for (int opt : OPTION_COLORS) {
-            int or = (opt >> 16) & 0xFF;
-            int og = (opt >> 8) & 0xFF;
-            int ob = opt & 0xFF;
-            int dr = tr - or;
-            int dg = tg - og;
-            int db = tb - ob;
+        for (int deg = 0; deg < 360; deg++) {
+            float rad = (float) Math.toRadians(deg);
+            int col = getColorForAngle(rad);
+            int cr = (col >> 16) & 0xFF;
+            int cg = (col >> 8) & 0xFF;
+            int cb = col & 0xFF;
+
+            int dr = tr - cr;
+            int dg = tg - cg;
+            int db = tb - cb;
             int dist = dr * dr + dg * dg + db * db;
             if (dist < minDistance) {
                 minDistance = dist;
-                bestColor = opt;
+                bestDeg = deg;
                 if (dist == 0) break;
             }
         }
-        return bestColor;
-    }
-
-    public static float findAngleForColor(int targetColor) {
-        int cleanTarget = targetColor & 0x00FFFFFF;
-        int bestIdx = 20; // Default to GT Blue
-        int minDistance = Integer.MAX_VALUE;
-
-        int tr = (cleanTarget >> 16) & 0xFF;
-        int tg = (cleanTarget >> 8) & 0xFF;
-        int tb = cleanTarget & 0xFF;
-
-        for (int i = 0; i < OPTION_COLORS.length; i++) {
-            int opt = OPTION_COLORS[i] & 0x00FFFFFF;
-            if (opt == cleanTarget) {
-                bestIdx = i;
-                minDistance = 0;
-                break;
-            }
-            int or = (opt >> 16) & 0xFF;
-            int og = (opt >> 8) & 0xFF;
-            int ob = opt & 0xFF;
-            int dist = (tr - or) * (tr - or) + (tg - og) * (tg - og) + (tb - ob) * (tb - ob);
-            if (dist < minDistance) {
-                minDistance = dist;
-                bestIdx = i;
-            }
-        }
-
-        float pStart = (bestIdx == 0) ? 0.0f : MULTI_LED_RING_PERCENT[bestIdx - 1];
-        float pEnd = MULTI_LED_RING_PERCENT[Math.min(bestIdx, MULTI_LED_RING_PERCENT.length - 1)];
-        float mid = (pStart + pEnd) / 2.0f;
-        return (float) (mid * 2.0 * Math.PI);
+        return (float) Math.toRadians(bestDeg);
     }
 
     @Override
@@ -322,8 +302,7 @@ public class ColorWheelView extends View {
         }
 
         mAngle = angle;
-        int newColor = getCalibratedColorForAngle(mAngle);
-        mSelectedColor = newColor;
+        mSelectedColor = getColorForAngle(mAngle);
 
         if (mListener != null) {
             mListener.onColorChanged(mSelectedColor, true);

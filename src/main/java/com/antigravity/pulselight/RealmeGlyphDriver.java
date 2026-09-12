@@ -177,31 +177,40 @@ public class RealmeGlyphDriver {
         flashSegment(ledsMask, color, 0);
     }
 
-    // Hardware-calibrated profiles verified directly on Realme GT 5 Qualcomm Lights HAL:
-    // Every single profile uses Mode 5 (horse_race_lamp) for guaranteed 1-to-1 per-segment addressing
-    // with exact physical LED colors from oplusLights.xml / Lights HAL table.
-    private static final int[][] COLOR_PROFILES = new int[][]{
-            // UI R, G, B,  Hardware 32-bit payload
-            // --- 8 СТРОГО ЗАФИКСИРОВАННЫХ ЦВЕТОВ (БЕЗ ИЗМЕНЕНИЙ) ---
-            { 253, 255, 251, (int) 0x8BFDFFFBL }, // 0: Белый (#FDFFFB) -> HAL: r:120, g:87, b:87
-            { 255,  59,  48, (int) 0x8C790000L }, // 2: Красный (#FF3B30) -> HAL: r:121, g:0, b:0
-            { 255, 149,   0, (int) 0x8BFFBE14L }, // 3: Оранжевый (#FF9500) -> HAL: r:121, g:9, b:0
-            { 255, 234,   0, (int) 0x8BFFFC3BL }, // 4: Желтый (#FFEA00) -> HAL: r:69, g:57, b:0
-            {   0, 230, 118, (int) 0x8D007400L }, // 5: Зеленый (#00E676) -> HAL: r:0, g:116, b:0
-            { 113, 187, 255, (int) 0x8B00FF19L }, // 6: Голубой (#71BBFF) -> HAL: r:0, g:38, b:60
-            {  41, 121, 255, (int) 0x8B74BBFFL }, // 7: Синий (#2979FF) -> HAL: r:0, g:0, b:85
-            { 168,  32, 255, (int) 0x8C71BBFFL }, // 8: Фиолетовый (#A820FF) -> HAL: r:42, g:0, b:60
-
-            // --- РОЗОВЫЙ ГРАДИЕНТ (Pink + Blue dual-tone) ---
-            { 255,  45, 122, (int) 0x8BFFFFF0L }, // 1: Розовый (#FF2D7A / #FFFFF0) -> HAL: r:127,127,49,49 (Pink + Blue)
-
-            // --- НОВЫЕ АППАРАТНЫЕ ЦВЕТА HAL ---
-            { 255, 167, 255, (int) 0x8BFFA7FFL }, // 9: Неоновый Розовый (#FFA7FF) -> HAL: r:77, g:0, b:34 (Pure Pink)
-            {   0, 255,  27, (int) 0x8B00FF1BL }, // 10: Изумрудный (#00FF1B) -> HAL: r:0, g:67, b:40 (Teal Green)
-            { 255, 255, 241, (int) 0x8BFFFFF1L }, // 11: Оранжево-Розовый (#FFFFF1) -> HAL: Orange + Pink
-            { 255, 255, 242, (int) 0x8BFFFFF2L }, // 12: Сине-Желтый (#FFFFF2) -> HAL: Blue + Yellow
-            { 255, 255, 243, (int) 0x8BFFFFF3L }, // 13: Аква-Мята (#FFFFF3) -> HAL: Cyan + Mint
-            { 255, 255, 244, (int) 0x8BFFFFF4L }  // 14: Золотой Лайм (#FFFFF4) -> HAL: Gold + Lime
+    // Hardware single-color profiles verified directly in oplusLights.xml on Realme GT 5:
+    // Pure single colors only. Dual-tone profiles are excluded to prevent two-color artifacts.
+    private static final int[][] HARDWARE_COLOR_TABLE = new int[][]{
+            // UI R,   G,   B,    HAL Payload
+            { 253, 255, 251, (int) 0x8BFDFFFBL }, // Белый: #FDFFFB
+            { 255,  59,  48, (int) 0x8C790000L }, // Красный: #FF3B30
+            { 255, 110,   0, (int) 0x8BFFBE15L }, // Темно-оранжевый: #FFBE15
+            { 255, 149,   0, (int) 0x8BFFBE14L }, // Оранжевый: #FF9500
+            { 255, 175,   0, (int) 0x8BFFBE13L }, // Янтарный: #FFBE13
+            { 255, 190,   0, (int) 0x8BFFBE12L }, // Теплый янтарь: #FFBE12
+            { 255, 205,   0, (int) 0x8BFFBE11L }, // Золотистый янтарь: #FFBE11
+            { 255, 215,   0, (int) 0x8BFFFC3CL }, // Теплый желтый: #FFFC3C
+            { 255, 234,   0, (int) 0x8BFFFC3BL }, // Желтый: #FFEA00
+            { 230, 245,   0, (int) 0x8BFFFC3AL }, // Лимонный: #FFFC3A
+            { 190, 255,   0, (int) 0x8BFFFC39L }, // Лаймово-желтый: #FFFC39
+            {   0, 230, 118, (int) 0x8D007400L }, // Зеленый: #00E676
+            {   0, 245, 130, (int) 0x8B00FF1DL }, // Весенний зеленый: #00FF1D
+            {   0, 255, 150, (int) 0x8B00FF1CL }, // Мятный: #00FF1C
+            {   0, 255,  27, (int) 0x8B00FF1BL }, // Изумрудный: #00FF1B
+            {   0, 235, 200, (int) 0x8B00FF1AL }, // Бирюзовый: #00FF1A
+            {   0, 220, 240, (int) 0x8B00FF19L }, // Аква-голубой, циан: #00FF19
+            {  25, 195, 255, (int) 0x8B00FF18L }, // Небесно-голубой: #00FF18
+            {  35, 160, 255, (int) 0x8B00FF18L }, // Светло-синий: #00FF18
+            {  41, 121, 255, (int) 0x8B74BBFFL }, // Синий: #2979FF — HAL blue
+            {  25,  28, 221, (int) 0x8B73BBFFL }, // Системный ультрамарин ColorOS Always-On: #191CDD — HAL blue1 #73BBFF
+            {  50,  60, 235, (int) 0x8B73BBFFL }, // Ультрамарин / глубокий сине-фиолетовый: HAL blue1 #73BBFF
+            {  75,  35, 235, (int) 0x8B72BBFFL }, // Электрик индиго: HAL blue2 #72BBFF
+            {  92,  39, 245, (int) 0x8B72BBFFL }, // Сине-фиолетовый индиго: HAL blue2 #72BBFF
+            { 127,  25, 245, (int) 0x8B71BBFFL }, // Самый бархатный фиолетовый: #7F19F5 — HAL blue3 #71BBFF
+            { 168,  32, 255, (int) 0x8B71BBFFL }, // Глубокий фиолетовый: #A820FF — HAL blue3 #71BBFF
+            { 183,  39, 246, (int) 0x8BFFA8FFL }, // Пурпурный ближе к красному: #B727F6 — HAL purple #FFA8FF
+            { 207,  45, 246, (int) 0x8BFFA8FFL }, // Насыщенный пурпурный / маджента: #CF2DF6 — HAL purple #FFA8FF
+            { 234,  52, 246, (int) 0x8BFFA7FFL }, // Неоновый розовый / маджента: #EA34F6 — HAL purple1 #FFA7FF
+            { 255,  45, 122, (int) 0x8BFFA7FFL }  // Пурпурно-розовый: HAL purple1 #FFA7FF
     };
 
     public static int getHardwareColorForRgb(int color) {
@@ -210,21 +219,42 @@ public class RealmeGlyphDriver {
 
     public static int getHardwareColorForRgb(int color, int ledsMask) {
         int rgb = color & 0x00FFFFFF;
-        if (rgb == 0xFFFF0 || rgb == 0xFF2D7A) return (int) 0x8BFFFFF0L;
-        if (rgb == 0xFFFF1) return (int) 0x8BFFFFF1L;
-        if (rgb == 0xFFFF2) return (int) 0x8BFFFFF2L;
-        if (rgb == 0xFFFF3) return (int) 0x8BFFFFF3L;
-        if (rgb == 0xFFFF4) return (int) 0x8BFFFFF4L;
-        if (rgb == 0xFFA7FF) return (int) 0x8BFFA7FFL;
-        if (rgb == 0x00FF1B) return (int) 0x8B00FF1BL;
+
+        // 1. Аппаратные двухцветные градиентные режимы HAL: только при явном выборе из третьего ряда палитры
+        if (rgb == 0xFFFFF0 || rgb == 0xFFFF0) return (int) 0x8BFFFFF0L; // Розовый дуэт: Pink и Blue
+        if (rgb == 0xFFFFF1 || rgb == 0xFFFF1) return (int) 0x8BFFFFF1L; // Оранжево-Розовый
+        if (rgb == 0xFFFFF2 || rgb == 0xFFFF2) return (int) 0x8BFFFFF2L; // Сине-Желтый
+        if (rgb == 0xFFFFF3 || rgb == 0xFFFF3) return (int) 0x8BFFFFF3L; // Аква-Мята
+        if (rgb == 0xFFFFF4 || rgb == 0xFFFF4) return (int) 0x8BFFFFF4L; // Золотой Лайм
 
         int r = (color >> 16) & 0xFF;
         int g = (color >> 8) & 0xFF;
         int b = color & 0xFF;
 
-        int bestPayload = (int) 0x8C71BBFFL;
+        // 2. Чистый белый цвет: калиброванная отметка на Color Picker или палитра #FDFFFB / #FFFFFF
+        if (rgb == 0xFDFFFB || rgb == 0xFFFFFF || (r >= 200 && g >= 200 && b >= 200 && Math.abs(r - g) <= 30 && Math.abs(r - b) <= 30 && Math.abs(g - b) <= 30)) {
+            return (int) 0x8BFDFFFBL;
+        }
+
+        // 3. Точные заводские одиночные цвета палитры
+        if (rgb == 0xFFA7FF) return (int) 0x8BFFA7FFL; // Неоновый Розовый
+        if (rgb == 0xFF3B30 || rgb == 0xFF8175) return (int) 0x8C790000L; // Красный
+        if (rgb == 0xFF9500 || rgb == 0xFFBE14) return (int) 0x8BFFBE14L; // Оранжевый
+        if (rgb == 0xFFEA00 || rgb == 0xFFFC3C) return (int) 0x8BFFFC3BL; // Желтый
+        if (rgb == 0x00E676 || rgb == 0x00FF1E) return (int) 0x8D007400L; // Зеленый
+        if (rgb == 0x00FF1B) return (int) 0x8B00FF1BL; // Изумрудный
+        if (rgb == 0x71BBFF) return (int) 0x8B00FF19L; // Голубой: циан и аква в палитре
+        if (rgb == 0x2979FF || rgb == 0x74BBFF) return (int) 0x8B74BBFFL; // Синий: чистый синий
+        if (rgb == 0x73BBFF || rgb == 0x191CDD) return (int) 0x8B73BBFFL; // Системный ультрамарин из Always-On #73BBFF
+        if (rgb == 0x72BBFF || rgb == 0x491AE6) return (int) 0x8B72BBFFL; // Сине-фиолетовый индиго #72BBFF
+        if (rgb == 0xA820FF || rgb == 0x7F19F5) return (int) 0x8B71BBFFL; // Фиолетовый — самый насыщенный бархатный фиолетовый #71BBFF
+        if (rgb == 0xFFA8FF || rgb == 0xB727F6 || rgb == 0xCF2DF6) return (int) 0x8BFFA8FFL; // Пурпурный ближе к красному #FFA8FF
+
+        // 4. Поиск ближайшего аппаратного оттенка для Color Picker
+        // Используется таблица из чистых однотонных оттенков HAL без двухцветных режимов
+        int bestPayload = (int) 0x8B71BBFFL;
         int minDistance = Integer.MAX_VALUE;
-        for (int[] p : COLOR_PROFILES) {
+        for (int[] p : HARDWARE_COLOR_TABLE) {
             int dr = r - p[0];
             int dg = g - p[1];
             int db = b - p[2];

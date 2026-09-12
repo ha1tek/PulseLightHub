@@ -7,34 +7,45 @@ import java.util.Random;
 
 public class GlyphColorManager {
     public static final int COLOR_MODE_UNIFIED = 0;
-    public static final int COLOR_MODE_PER_SEGMENT = 1;
     public static final int COLOR_MODE_RANDOM = 2;
 
     // Stock Realme GT 5 calibrated hardware colors
     public static final int DEFAULT_PURPLE = 0xFFA820FF; // #A820FF (Matches GT 5 physical hardware purple)
-    public static final int DEFAULT_BLUE = 0xFF71BBFF; // #71BBFF (Stock Realme GT Blue)
-    public static final int COLOR_CYAN = 0xFF74BBFF;    // #74BBFF (Blue)
-    public static final int COLOR_VIOLET = 0xFFA820FF;  // #A820FF (Purple)
-    public static final int COLOR_PINK = 0xFFFF8173;    // #FF8173 (Red 2)
-    public static final int COLOR_ORANGE = 0xFFFFBE15;  // #FFBE15 (Orange)
-    public static final int COLOR_YELLOW = 0xFFFFFC3C;  // #FFFC3C (Yellow)
-    public static final int COLOR_GREEN = 0xFF00FF1E;   // #00FF1E (Green)
-    public static final int COLOR_WHITE = 0xFFFDFFFB;   // #FDFFFB (White)
+    public static final int DEFAULT_BLUE = 0xFF71BBFF;   // #71BBFF (Stock Realme GT Blue)
+    public static final int COLOR_CYAN = 0xFF74BBFF;     // #74BBFF (Blue)
+    public static final int COLOR_VIOLET = 0xFFA820FF;   // #A820FF (Purple)
+    public static final int COLOR_PINK = 0xFFFF8173;     // #FF8173 (Red 2)
+    public static final int COLOR_ORANGE = 0xFFFFBE15;   // #FFBE15 (Orange)
+    public static final int COLOR_YELLOW = 0xFFFFFC3C;   // #FFFC3C (Yellow)
+    public static final int COLOR_GREEN = 0xFF00FF1E;    // #00FF1E (Green)
+    public static final int COLOR_WHITE = 0xFFFDFFFB;    // #FDFFFB (White)
 
     public static final int[] PRESET_PALETTE = new int[]{
             DEFAULT_BLUE, COLOR_CYAN, COLOR_VIOLET, COLOR_PINK,
             COLOR_ORANGE, COLOR_YELLOW, COLOR_GREEN, COLOR_WHITE
     };
 
+    // 11 vivid hardware-calibrated colors that directly match Qualcomm Lights HAL registers on Realme GT 5
+    public static final int[] RAINBOW_COLORS = new int[]{
+            0xFFFF3B30, // Красный (Red) -> HAL 0x8C790000
+            0xFFFF9500, // Оранжевый (Orange) -> HAL 0x8BFFBE14
+            0xFFFFEA00, // Желтый (Yellow) -> HAL 0x8BFFFC3B
+            0xFF00E676, // Зеленый (Green) -> HAL 0x8D007400
+            0xFF00FF1B, // Изумрудный (Emerald) -> HAL 0x8B00FF1B
+            0xFF71BBFF, // Голубой (Cyan) -> HAL 0x8B00FF19
+            0xFF2979FF, // Синий (Blue) -> HAL 0x8B74BBFF
+            0xFFA820FF, // Фиолетовый (Purple) -> HAL 0x8C71BBFF
+            0xFFFFA7FF, // Неоновый Розовый (Neon Pink) -> HAL 0x8BFFA7FF
+            0xFFFDFFFB, // Белый (White) -> HAL 0x8BFDFFFB
+            0xFFFF2D7A  // Розовый (Pink) -> HAL 0x8BFFFFF0
+    };
+
     private static final String PREFS_NAME = "pulse_glyph_colors";
     private static final String KEY_MODE = "color_mode";
     private static final String KEY_UNIFIED = "color_unified";
-    private static final String KEY_SEG_A = "color_seg_a";
-    private static final String KEY_SEG_B = "color_seg_b";
-    private static final String KEY_SEG_C = "color_seg_c";
-    private static final String KEY_SEG_D = "color_seg_d";
 
     private static final Random sRandom = new Random();
+    private static int sLastRainbowIndex = -1;
 
     public static int getColorMode(Context context) {
         SharedPreferences sp = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
@@ -52,56 +63,41 @@ public class GlyphColorManager {
     }
 
     public static void setUnifiedColor(Context context, int color) {
+        int clean = 0xFF000000 | (color & 0x00FFFFFF);
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                .edit().putInt(KEY_UNIFIED, color).apply();
+                .edit().putInt(KEY_UNIFIED, clean).apply();
     }
 
     public static int getSegmentColor(Context context, int segmentBitmask) {
-        SharedPreferences sp = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        int mode = sp.getInt(KEY_MODE, COLOR_MODE_UNIFIED);
-        if (mode == COLOR_MODE_RANDOM) {
-            return getRandomColor();
-        }
-        if (mode == COLOR_MODE_UNIFIED) {
-            return sp.getInt(KEY_UNIFIED, DEFAULT_PURPLE);
-        }
-
-        // Per-segment mode
-        switch (segmentBitmask) {
-            case RealmeGlyphDriver.LED_A:
-                return sp.getInt(KEY_SEG_A, DEFAULT_PURPLE);
-            case RealmeGlyphDriver.LED_B:
-                return sp.getInt(KEY_SEG_B, DEFAULT_PURPLE);
-            case RealmeGlyphDriver.LED_C:
-                return sp.getInt(KEY_SEG_C, DEFAULT_PURPLE);
-            case RealmeGlyphDriver.LED_D:
-                return sp.getInt(KEY_SEG_D, DEFAULT_PURPLE);
-            default:
-                return sp.getInt(KEY_UNIFIED, DEFAULT_PURPLE);
-        }
+        return getUnifiedColor(context);
     }
 
-    public static void setSegmentColor(Context context, int segmentBitmask, int color) {
-        int validColor = ColorWheelView.toNearestHardwareColor(color);
-        SharedPreferences.Editor edit = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit();
-        switch (segmentBitmask) {
-            case RealmeGlyphDriver.LED_A:
-                edit.putInt(KEY_SEG_A, validColor);
-                break;
-            case RealmeGlyphDriver.LED_B:
-                edit.putInt(KEY_SEG_B, validColor);
-                break;
-            case RealmeGlyphDriver.LED_C:
-                edit.putInt(KEY_SEG_C, validColor);
-                break;
-            case RealmeGlyphDriver.LED_D:
-                edit.putInt(KEY_SEG_D, validColor);
-                break;
+    public static boolean isRainbowMode(Context context) {
+        return getColorMode(context) == COLOR_MODE_RANDOM;
+    }
+
+    public static void setRainbowMode(Context context, boolean enabled) {
+        setColorMode(context, enabled ? COLOR_MODE_RANDOM : COLOR_MODE_UNIFIED);
+    }
+
+    /**
+     * Returns a new hardware-calibrated color for the rainbow effect.
+     * Guaranteed to pick a different color than the previous one on every invocation.
+     */
+    public static synchronized int getNextRainbowColor() {
+        int nextIndex;
+        if (sLastRainbowIndex < 0) {
+            nextIndex = sRandom.nextInt(RAINBOW_COLORS.length);
+        } else {
+            // Guaranteed different index from the last one
+            int offset = 1 + sRandom.nextInt(RAINBOW_COLORS.length - 1);
+            nextIndex = (sLastRainbowIndex + offset) % RAINBOW_COLORS.length;
         }
-        edit.apply();
+        sLastRainbowIndex = nextIndex;
+        return RAINBOW_COLORS[nextIndex];
     }
 
     public static int getRandomColor() {
-        return PRESET_PALETTE[sRandom.nextInt(PRESET_PALETTE.length)];
+        return getNextRainbowColor();
     }
 }

@@ -433,19 +433,21 @@ public class PulseAudioService extends Service {
 
     private void dispatchAnalysisResult(AudioAnalyzer.AnalysisResult result) {
         int colorMode = GlyphColorManager.getColorMode(PulseAudioService.this);
-        int currentColor;
-        if (colorMode == GlyphColorManager.COLOR_MODE_RANDOM) {
-            if (result.isBeat) {
-                mCurrentBeatColor = GlyphColorManager.getRandomColor();
-            }
-            currentColor = mCurrentBeatColor;
-        } else if (colorMode == GlyphColorManager.COLOR_MODE_PER_SEGMENT) {
-            currentColor = GlyphColorManager.getSegmentColor(PulseAudioService.this, result.activeLedMask);
-        } else {
-            currentColor = GlyphColorManager.getUnifiedColor(PulseAudioService.this);
-        }
 
-        if (result.isBeat || (result.activeLedMask != mPreviousActiveMask && result.activeLedMask != 0)) {
+        boolean isNewFlash = result.isBeat
+                || (mPreviousActiveMask == 0 && result.activeLedMask != 0)
+                || (result.activeLedMask != mPreviousActiveMask && result.activeLedMask != 0);
+
+        if (colorMode == GlyphColorManager.COLOR_MODE_RANDOM) {
+            if (isNewFlash) {
+                mCurrentBeatColor = GlyphColorManager.getNextRainbowColor();
+            }
+        } else {
+            mCurrentBeatColor = GlyphColorManager.getUnifiedColor(PulseAudioService.this);
+        }
+        int currentColor = mCurrentBeatColor;
+
+        if (isNewFlash) {
             RealmeGlyphDriver.flashSegment(result.activeLedMask, currentColor, 0);
             mPreviousActiveMask = result.activeLedMask;
         } else if (result.activeLedMask == 0 && mPreviousActiveMask != 0) {

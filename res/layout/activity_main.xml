@@ -205,11 +205,68 @@
                     android:padding="14dp"
                     android:visibility="visible">
 
+
                     <!-- Elevated Color Cards (15 Calibrated Colors in 3x5 Grid) -->
                     <com.antigravity.pulselight.ColorSliderView
                         android:id="@+id/color_slider_view"
                         android:layout_width="match_parent"
                         android:layout_height="130dp" />
+
+                    <!-- Custom Color Toggle Button -->
+                    <TextView
+                        android:id="@+id/btn_toggle_custom_color"
+                        android:layout_width="match_parent"
+                        android:layout_height="40dp"
+                        android:layout_marginTop="10dp"
+                        android:gravity="center"
+                        android:background="@drawable/bg_button_dark"
+                        android:text="Свой цвет"
+                        android:textColor="@color/text_white"
+                        android:textSize="13sp"
+                        android:clickable="true"
+                        android:focusable="true" />
+
+                    <!-- Collapsible Circular Color Picker & Rainbow Toggle Container -->
+                    <LinearLayout
+                        android:id="@+id/layout_custom_color_picker"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="gone"
+                        android:gravity="center_horizontal"
+                        android:layout_marginTop="10dp">
+
+                        <com.antigravity.pulselight.ColorWheelView
+                            android:id="@+id/custom_color_wheel"
+                            android:layout_width="220dp"
+                            android:layout_height="220dp"
+                            android:layout_gravity="center_horizontal"
+                            android:layout_marginTop="4dp"
+                            android:layout_marginBottom="8dp" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:paddingTop="6dp"
+                            android:paddingBottom="6dp">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="Rainbow"
+                                android:textColor="@color/text_white"
+                                android:textSize="14sp"
+                                android:textStyle="bold" />
+
+                            <com.antigravity.pulselight.ModernSwitch
+                                android:id="@+id/switch_rainbow"
+                                android:layout_width="52dp"
+                                android:layout_height="32dp" />
+                        </LinearLayout>
+                    </LinearLayout>
 
                     <!-- Bottom Off Button Pill -->
                     <TextView

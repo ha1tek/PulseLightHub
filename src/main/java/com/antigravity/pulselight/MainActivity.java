@@ -139,7 +139,6 @@ public class MainActivity extends Activity {
     private SeekBar seekSensitivity;
     private TextView tvDecayValue;
     private SeekBar seekDecay;
-    private TextView tvDaemonStatus, btnReconnectDaemon;
 
     private static final int REQUEST_MEDIA_PROJECTION = 1001;
     private boolean mIsUpdatingEngineUI = false;
@@ -350,14 +349,22 @@ public class MainActivity extends Activity {
             return;
         }
 
-        int tabWidth = usableWidth / 2;
-        ViewGroup.LayoutParams lp = navTabIndicator.getLayoutParams();
-        if (lp.width != tabWidth) {
-            lp.width = tabWidth;
-            navTabIndicator.setLayoutParams(lp);
+        TextView targetTab = (newIndex == 0) ? navTabStudio : navTabEngine;
+        int targetWidth;
+        float targetX;
+        if (targetTab != null && targetTab.getWidth() > 0) {
+            targetWidth = targetTab.getWidth();
+            targetX = (float) targetTab.getLeft();
+        } else {
+            targetWidth = usableWidth / 2;
+            targetX = (float) (newIndex * targetWidth);
         }
 
-        float targetX = navTabsLayout.getPaddingLeft() + newIndex * tabWidth;
+        ViewGroup.LayoutParams lp = navTabIndicator.getLayoutParams();
+        if (lp.width != targetWidth) {
+            lp.width = targetWidth;
+            navTabIndicator.setLayoutParams(lp);
+        }
 
         TextView[] tabs = new TextView[]{navTabStudio, navTabEngine};
         if (animate) {
@@ -409,11 +416,6 @@ public class MainActivity extends Activity {
             tvPermStatus.setOnClickListener(v -> {
                 Toast.makeText(this, RealmeGlyphDriver.getStatus(), Toast.LENGTH_SHORT).show();
             });
-        }
-
-        if (tvDaemonStatus != null) {
-            tvDaemonStatus.setText(RealmeGlyphDriver.getStatus());
-            tvDaemonStatus.setTextColor(accent);
         }
     }
 
@@ -1598,8 +1600,6 @@ public class MainActivity extends Activity {
         tvDecayValue = findViewById(R.id.tv_decay_value);
         seekDecay = findViewById(R.id.seek_decay);
 
-        tvDaemonStatus = findViewById(R.id.tv_daemon_status);
-        btnReconnectDaemon = findViewById(R.id.btn_reconnect_daemon);
 
         // Sliders
         if (seekSensitivity != null) {
@@ -1638,15 +1638,6 @@ public class MainActivity extends Activity {
             });
         }
 
-        // Status check button
-        if (btnReconnectDaemon != null) {
-            btnReconnectDaemon.setOnClickListener(v -> {
-                RealmeGlyphDriver.connectAsync();
-                updateDriverStatusBadge();
-                mainHandler.postDelayed(this::updateDriverStatusBadge, 600);
-                Toast.makeText(this, "Проверка состояния драйвера...", Toast.LENGTH_SHORT).show();
-            });
-        }
 
         // Threshold gate switch
         switchEngineBandThreshold = findViewById(R.id.switch_engine_band_threshold);
@@ -1870,9 +1861,6 @@ public class MainActivity extends Activity {
 
         if (tvEngineStatusDesc != null && AudioAnalyzer.isEngineEnabled(this)) {
             tvEngineStatusDesc.setTextColor(accentColor);
-        }
-        if (tvDaemonStatus != null) {
-            tvDaemonStatus.setTextColor(accentColor);
         }
     }
 
@@ -2391,10 +2379,6 @@ public class MainActivity extends Activity {
             tvDecayValue.setText(decay + " ms");
         }
 
-        if (tvDaemonStatus != null) {
-            tvDaemonStatus.setText(RealmeGlyphDriver.getStatus());
-            tvDaemonStatus.setTextColor(ThemeManager.getAccentColor(this));
-        }
 
         if (switchEngineBandThreshold != null) {
             switchEngineBandThreshold.setChecked(mAudioAnalyzer.isEnableBandThreshold());

@@ -1,7 +1,8 @@
 # Pulse Light Hub
 
 [![Platform](https://img.shields.io/badge/Platform-Android_8.0+-3DDC84.svg?style=flat-square)](https://android.com)
-[![Device](https://img.shields.io/badge/Device-Realme_GT_5_Awakening_Halo-FF6600.svg?style=flat-square)](https://www.realme.com)
+[![Device](https://img.shields.io/badge/Device-Realme_GT_5_Awakening_Halo-FF6600.svg?style=flat-square)]()
+[![Device](https://img.shields.io/badge/Device-Realme_GT_Neo_5_Awakening_Halo-FF6600.svg?style=flat-square)]()
 [![Network](https://img.shields.io/badge/Network-100%25_Offline-00E5FF.svg?style=flat-square)](https://github.com/ha1tek/PulseLightHub)
 [![DSP](https://img.shields.io/badge/Audio_DSP-aubio_HFC_+_RMS-blueviolet.svg?style=flat-square)](https://github.com/ha1tek/PulseLightHub)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)

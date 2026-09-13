@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/notif_root"
+    android:layout_width="match_parent"
+    android:layout_height="64dp"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingStart="12dp"
+    android:paddingEnd="12dp"
+    android:paddingTop="6dp"
+    android:paddingBottom="6dp">
+
+    <ImageView
+        android:id="@+id/notif_icon"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:src="@drawable/ic_soundwave_black"
+        android:tint="#00E676" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginStart="10dp"
+        android:layout_marginEnd="8dp"
+        android:gravity="center_vertical"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/notif_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Аудио-движок активен"
+            android:textColor="#00E676"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:singleLine="true"
+            android:ellipsize="end" />
+    </LinearLayout>
+
+    <!-- Controls Container -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <!-- Button 'A' (Auto-calibration 10s) -->
+        <TextView
+            android:id="@+id/notif_btn_calib"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_marginEnd="8dp"
+            android:gravity="center"
+            android:background="@drawable/bg_notif_calib_btn"
+            android:text="А"
+            android:textColor="#00E676"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <!-- Toggle Switch ON/OFF -->
+        <TextView
+            android:id="@+id/notif_btn_toggle"
+            android:layout_width="54dp"
+            android:layout_height="32dp"
+            android:gravity="center"
+            android:background="@drawable/bg_notif_toggle_on"
+            android:text="ВКЛ"
+            android:textColor="#000000"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+</LinearLayout>

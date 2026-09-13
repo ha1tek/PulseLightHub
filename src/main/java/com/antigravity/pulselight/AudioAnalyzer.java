@@ -922,7 +922,33 @@ public class AudioAnalyzer {
         java.util.Arrays.fill(mCalibRmsHist, 0);
 
         mIsCalibrating = true;
+        mMainHandler.removeCallbacks(mCalibWatchdogRunnable);
+        mMainHandler.postDelayed(mCalibWatchdogRunnable, 500);
     }
+
+    private final Runnable mCalibWatchdogRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (!mIsCalibrating) return;
+            long now = System.currentTimeMillis();
+            long elapsed = now - mCalibrationStartTime;
+            int remainingSec = (int) Math.max(0, Math.ceil((mCalibrationDurationMs - elapsed) / 1000.0));
+            if (remainingSec != mCalibLastReportedSec) {
+                mCalibLastReportedSec = remainingSec;
+                if (mCalibrationCallback != null) {
+                    final int sec = remainingSec;
+                    mMainHandler.post(() -> {
+                        if (mCalibrationCallback != null) mCalibrationCallback.onCalibrationProgress(sec);
+                    });
+                }
+            }
+            if (elapsed >= mCalibrationDurationMs) {
+                finishAutoCalibration();
+            } else {
+                mMainHandler.postDelayed(this, 500);
+            }
+        }
+    };
 
     public boolean isCalibrating() {
         return mIsCalibrating;
@@ -931,10 +957,12 @@ public class AudioAnalyzer {
     public void cancelCalibration() {
         mIsCalibrating = false;
         mCalibrationCallback = null;
+        mMainHandler.removeCallbacks(mCalibWatchdogRunnable);
     }
 
     private void finishAutoCalibration() {
         mIsCalibrating = false;
+        mMainHandler.removeCallbacks(mCalibWatchdogRunnable);
         final CalibrationCallback cb = mCalibrationCallback;
         mCalibrationCallback = null;
 
@@ -1413,6 +1441,30 @@ public class AudioAnalyzer {
         mEnableRandomVariation = preset.enableRandomVariation;
         mRandomVariationDepth = preset.randomVariationDepth;
         mEnableLimiter = preset.enableLimiter;
+        mEnableBandThreshold = preset.enableBandThreshold;
+        mSpectrumVisualGain = preset.spectrumGain;
+        mDiagramIntervalMs = preset.diagramIntervalMs;
+
+        if (preset.narrowColorCycle != null) {
+            for (int i = 0; i < Math.min(NARROW_BANDS_COUNT, preset.narrowColorCycle.length); i++) {
+                mNarrowColorCycle[i] = preset.narrowColorCycle[i];
+            }
+        }
+        if (preset.wideColorCycle != null) {
+            for (int i = 0; i < Math.min(WIDE_BANDS_COUNT, preset.wideColorCycle.length); i++) {
+                mWideColorCycle[i] = preset.wideColorCycle[i];
+            }
+        }
+        if (preset.narrowCeilings != null) {
+            for (int i = 0; i < Math.min(NARROW_BANDS_COUNT, preset.narrowCeilings.length); i++) {
+                mNarrowCeilings[i] = preset.narrowCeilings[i];
+            }
+        }
+        if (preset.wideCeilings != null) {
+            for (int i = 0; i < Math.min(WIDE_BANDS_COUNT, preset.wideCeilings.length); i++) {
+                mWideCeilings[i] = preset.wideCeilings[i];
+            }
+        }
 
         if (preset.narrowGains != null) {
             for (int i = 0; i < Math.min(NARROW_BANDS_COUNT, preset.narrowGains.length); i++) {
@@ -1461,6 +1513,7 @@ public class AudioAnalyzer {
 
     public AudioPreset exportCurrentAsPreset(String id, String name) {
         AudioPreset p = new AudioPreset(id, name, false);
+        p.deviceModel = mContext != null ? DeviceModelManager.getDeviceModel(mContext) : DeviceModelManager.MODEL_GT_5;
         p.fftSize = mFftSize;
         p.useTukeyWindow = mUseTukeyWindow;
         p.triggerMode = mTriggerMode;
@@ -1468,6 +1521,8 @@ public class AudioAnalyzer {
         p.spectrumMode = mSpectrumMode;
         p.studioAnalysisMode = mStudioAnalysisMode;
         p.quickTriggerPreset = mQuickTriggerPreset;
+        p.spectrumGain = mSpectrumVisualGain;
+        p.diagramIntervalMs = mDiagramIntervalMs;
         p.sensitivity = mSensitivity;
         p.decayMs = mDecayMs;
         p.enableOnset = mEnableOnset;
@@ -1484,6 +1539,11 @@ public class AudioAnalyzer {
         p.enableRandomVariation = mEnableRandomVariation;
         p.randomVariationDepth = mRandomVariationDepth;
         p.enableLimiter = mEnableLimiter;
+        p.enableBandThreshold = mEnableBandThreshold;
+        p.narrowColorCycle = mNarrowColorCycle.clone();
+        p.wideColorCycle = mWideColorCycle.clone();
+        p.narrowCeilings = mNarrowCeilings.clone();
+        p.wideCeilings = mWideCeilings.clone();
         p.narrowGains = mNarrowGains.clone();
         p.wideGains = mWideGains.clone();
         p.narrowPatterns = mNarrowPatterns.clone();

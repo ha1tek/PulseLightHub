@@ -31,6 +31,14 @@ public class AudioPreset {
     public boolean enableRandomVariation = false;
     public float randomVariationDepth = 0.15f;
     public boolean enableLimiter = false;
+    public float limiterThreshold = 0.90f;
+    public boolean enableBandThreshold = true;
+    public float spectrumGain = 1.40f;
+    public int diagramIntervalMs = 1;
+    public boolean[] narrowColorCycle = new boolean[]{false, false, false, false};
+    public boolean[] wideColorCycle = new boolean[]{false, false, false, false, false, false, false, false, false, false, false, false};
+    public float[] narrowCeilings = new float[]{1.0f, 1.0f, 1.0f, 1.0f};
+    public float[] wideCeilings = new float[]{1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
     public float[] narrowGains = new float[]{1.0f, 1.0f, 1.0f, 1.0f};
     public float[] wideGains = new float[]{1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
     public float[] narrowThresholds = new float[]{0.15f, 0.15f, 0.15f, 0.15f};
@@ -106,6 +114,34 @@ public class AudioPreset {
             obj.put("enableRandomVariation", enableRandomVariation);
             obj.put("randomVariationDepth", (double) randomVariationDepth);
             obj.put("enableLimiter", enableLimiter);
+            obj.put("limiterThreshold", (double) limiterThreshold);
+            obj.put("enableBandThreshold", enableBandThreshold);
+            obj.put("spectrumGain", (double) spectrumGain);
+            obj.put("diagramIntervalMs", diagramIntervalMs);
+
+            JSONArray ncc = new JSONArray();
+            if (narrowColorCycle != null) {
+                for (boolean b : narrowColorCycle) ncc.put(b);
+            }
+            obj.put("narrowColorCycle", ncc);
+
+            JSONArray wcc = new JSONArray();
+            if (wideColorCycle != null) {
+                for (boolean b : wideColorCycle) wcc.put(b);
+            }
+            obj.put("wideColorCycle", wcc);
+
+            JSONArray nc = new JSONArray();
+            if (narrowCeilings != null) {
+                for (float c : narrowCeilings) nc.put((double) c);
+            }
+            obj.put("narrowCeilings", nc);
+
+            JSONArray wc = new JSONArray();
+            if (wideCeilings != null) {
+                for (float c : wideCeilings) wc.put((double) c);
+            }
+            obj.put("wideCeilings", wc);
 
             JSONArray ng = new JSONArray();
             if (narrowGains != null) {
@@ -189,6 +225,42 @@ public class AudioPreset {
             p.enableRandomVariation = obj.optBoolean("enableRandomVariation", false);
             p.randomVariationDepth = (float) obj.optDouble("randomVariationDepth", 0.15);
             p.enableLimiter = obj.optBoolean("enableLimiter", false);
+            p.limiterThreshold = (float) obj.optDouble("limiterThreshold", 0.90);
+            p.enableBandThreshold = obj.optBoolean("enableBandThreshold", true);
+            p.spectrumGain = (float) obj.optDouble("spectrumGain", 1.40);
+            p.diagramIntervalMs = obj.optInt("diagramIntervalMs", 1);
+
+            JSONArray ncc = obj.optJSONArray("narrowColorCycle");
+            if (ncc != null) {
+                p.narrowColorCycle = new boolean[Math.max(4, ncc.length())];
+                for (int i = 0; i < ncc.length(); i++) p.narrowColorCycle[i] = ncc.optBoolean(i, false);
+            } else {
+                p.narrowColorCycle = new boolean[]{false, false, false, false};
+            }
+
+            JSONArray wcc = obj.optJSONArray("wideColorCycle");
+            if (wcc != null) {
+                p.wideColorCycle = new boolean[Math.max(12, wcc.length())];
+                for (int i = 0; i < wcc.length(); i++) p.wideColorCycle[i] = wcc.optBoolean(i, false);
+            } else {
+                p.wideColorCycle = new boolean[]{false, false, false, false, false, false, false, false, false, false, false, false};
+            }
+
+            JSONArray nc = obj.optJSONArray("narrowCeilings");
+            if (nc != null) {
+                p.narrowCeilings = new float[Math.max(4, nc.length())];
+                for (int i = 0; i < nc.length(); i++) p.narrowCeilings[i] = (float) nc.optDouble(i, 1.0);
+            } else {
+                p.narrowCeilings = new float[]{1.0f, 1.0f, 1.0f, 1.0f};
+            }
+
+            JSONArray wc = obj.optJSONArray("wideCeilings");
+            if (wc != null) {
+                p.wideCeilings = new float[Math.max(12, wc.length())];
+                for (int i = 0; i < wc.length(); i++) p.wideCeilings[i] = (float) wc.optDouble(i, 1.0);
+            } else {
+                p.wideCeilings = new float[]{1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
+            }
 
             JSONArray ng = obj.optJSONArray("narrowGains");
             if (ng != null) {

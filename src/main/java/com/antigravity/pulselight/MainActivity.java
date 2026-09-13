@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ClipData;
 import android.content.ClipboardManager;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
@@ -182,14 +183,89 @@ public class MainActivity extends Activity {
         RealmeGlyphDriver.init(this);
         updateDriverStatusBadge();
 
-        // If engine is not already running in background, keep it OFF on cold start
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            android.content.SharedPreferences sp = getSharedPreferences("pulse_tile_prefs", MODE_PRIVATE);
+            if (!sp.getBoolean("tile_prompted", false)) {
+                sp.edit().putBoolean("tile_prompted", true).apply();
+                try {
+                    android.app.StatusBarManager sbm = getSystemService(android.app.StatusBarManager.class);
+                    if (sbm != null) {
+                        ComponentName comp = new ComponentName(this, PulseTileService.class);
+                        sbm.requestAddTileService(
+                                comp,
+                                "Аудио-движок",
+                                android.graphics.drawable.Icon.createWithResource(this, R.drawable.ic_qs_pulse),
+                                getMainExecutor(),
+                                result -> Log.i(TAG, "Tile request result: " + result)
+                        );
+                    }
+                } catch (Throwable t) {
+                    Log.w(TAG, "StatusBarManager requestAddTileService failed: " + t);
+                }
+            }
+        }
+
+        // Ensure background service is running so persistent notification is in shade
         if (!PulseAudioService.isRunning()) {
-            AudioAnalyzer.setEngineEnabled(this, false);
+            PulseAudioService.startEngine(this);
         }
 
         // Start on Tab 0 (Glyph Studio)
         selectTab(0);
     }
+
+    private final PulseAudioService.EngineStateListener mEngineStateListener = new PulseAudioService.EngineStateListener() {
+        @Override
+        public void onEngineStateChanged(boolean isEnabled) {
+            runOnUiThread(() -> {
+                mIsUpdatingEngineUI = true;
+                if (switchAudioEngine != null) {
+                    switchAudioEngine.setChecked(isEnabled);
+                }
+                mIsUpdatingEngineUI = false;
+                if (tvEngineStatusDesc != null) {
+                    if (isEnabled) {
+                        tvEngineStatusDesc.setText("Аудио-движок активен • Системный звук");
+                        tvEngineStatusDesc.setTextColor(ThemeManager.getAccentColor(MainActivity.this));
+                    } else {
+                        tvEngineStatusDesc.setText("Аудио-движок выключен • Нажмите для активации");
+                        tvEngineStatusDesc.setTextColor(getColor(R.color.text_muted));
+                    }
+                }
+                if (!isEnabled) {
+                    if (engineSpectrumVisualizer != null && mAudioAnalyzer != null) {
+                        engineSpectrumVisualizer.updateData(mAudioAnalyzer.getEmptyResult());
+                    }
+                    if (studioSpectrumVisualizer != null && mAudioAnalyzer != null) {
+                        studioSpectrumVisualizer.updateData(mAudioAnalyzer.getEmptyResult());
+                    }
+                    if (glyphVectorView != null) {
+                        glyphVectorView.fadeSegmentToResting(RealmeGlyphDriver.LED_ALL, 120);
+                    }
+                }
+            });
+        }
+
+        @Override
+        public void onCalibrationStateChanged(boolean isCalibrating, int remainingSeconds) {
+            runOnUiThread(() -> {
+                if (isCalibrating) {
+                    if (tvEngineStatusDesc != null) {
+                        tvEngineStatusDesc.setText("Автокалибровка: " + remainingSeconds + " сек...");
+                        tvEngineStatusDesc.setTextColor(0xFFFFB300);
+                    }
+                } else {
+                    if (mAudioAnalyzer != null) {
+                        mAudioAnalyzer.loadSettings(MainActivity.this);
+                    }
+                    updateEngineControls();
+                    updateFiltersUI();
+                    updateStudioSpectrumUI();
+                    updateBandGainControls();
+                }
+            });
+        }
+    };
 
     @Override
     protected void onNewIntent(Intent intent) {
@@ -206,11 +282,14 @@ public class MainActivity extends Activity {
         syncBluetoothDelayUI();
         updateEngineControls();
         attachFrameListener();
+        PulseAudioService.setStateListener(mEngineStateListener);
+        PulseTileService.updateTileState(this);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
+        PulseAudioService.setStateListener(null);
         PulseAudioService.setFrameListener(null);
     }
 
@@ -1868,7 +1947,14 @@ public class MainActivity extends Activity {
                 if (mIsUpdatingEngineUI) return;
 
                 if (isChecked) {
-                    if (PulseAudioService.hasProjectionData()) {
+                    if (PulseAudioService.isRunning()) {
+                        PulseAudioService.resumeEngine();
+                        if (tvEngineStatusDesc != null) {
+                            tvEngineStatusDesc.setText("Аудио-движок активен • Системный звук");
+                            tvEngineStatusDesc.setTextColor(ThemeManager.getAccentColor(this));
+                        }
+                        Toast.makeText(this, "Аудио-движок возобновлен", Toast.LENGTH_SHORT).show();
+                    } else if (PulseAudioService.hasProjectionData()) {
                         PulseAudioService.startEngine(this);
                         if (tvEngineStatusDesc != null) {
                             tvEngineStatusDesc.setText("Аудио-движок активен • Системный звук");
@@ -1894,7 +1980,11 @@ public class MainActivity extends Activity {
                         }
                     }
                 } else {
-                    PulseAudioService.stopEngine(this);
+                    if (PulseAudioService.isRunning()) {
+                        PulseAudioService.pauseEngine();
+                    } else {
+                        PulseAudioService.stopEngine(this);
+                    }
                     if (tvEngineStatusDesc != null) {
                         tvEngineStatusDesc.setText("Аудио-движок выключен");
                         tvEngineStatusDesc.setTextColor(getColor(R.color.text_muted));
@@ -1905,8 +1995,11 @@ public class MainActivity extends Activity {
                     if (studioSpectrumVisualizer != null && mAudioAnalyzer != null) {
                         studioSpectrumVisualizer.updateData(mAudioAnalyzer.getEmptyResult());
                     }
+                    if (glyphVectorView != null) {
+                        glyphVectorView.fadeSegmentToResting(RealmeGlyphDriver.LED_ALL, 120);
+                    }
                     RealmeGlyphDriver.turnOff();
-                    Toast.makeText(this, "Аудио-движок остановлен", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "Аудио-движок приостановлен", Toast.LENGTH_SHORT).show();
                 }
             });
         }
@@ -2676,6 +2769,90 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void updateFiltersUI() {
+        if (mAudioAnalyzer == null) return;
+
+        // Filter 1: Onset
+        if (switchFilterOnset != null) {
+            switchFilterOnset.setChecked(mAudioAnalyzer.isEnableOnset());
+        }
+
+        // Filter 2: Loudness Gate
+        boolean loudnessEnabled = mAudioAnalyzer.isEnableLoudnessGate();
+        if (switchFilterLoudness != null) {
+            switchFilterLoudness.setChecked(loudnessEnabled);
+        }
+        if (containerLoudnessSlider != null) {
+            containerLoudnessSlider.setVisibility(loudnessEnabled ? View.VISIBLE : View.GONE);
+        }
+        if (seekLoudnessGate != null) {
+            int progress = Math.round(mAudioAnalyzer.getLoudnessGateThreshold() * 100.0f);
+            seekLoudnessGate.setProgress(progress);
+            if (tvLoudnessGateVal != null) {
+                tvLoudnessGateVal.setText(progress + "%");
+            }
+        }
+
+        // Filter 3: FInterp
+        boolean finterpEnabled = mAudioAnalyzer.isEnableFInterp();
+        if (switchFilterFInterp != null) {
+            switchFilterFInterp.setChecked(finterpEnabled);
+        }
+        if (containerFilterFInterp != null) {
+            containerFilterFInterp.setVisibility(finterpEnabled ? View.VISIBLE : View.GONE);
+        }
+        if (seekFilterFInterp != null) {
+            float sp = mAudioAnalyzer.getFInterpSpeed();
+            seekFilterFInterp.setProgress(Math.max(0, Math.min(45, Math.round(sp - 5.0f))));
+            if (tvFilterFInterpVal != null) {
+                tvFilterFInterpVal.setText(String.format(java.util.Locale.US, "%.1f", sp));
+            }
+        }
+
+        // Filter 4: Random Variation
+        boolean varEnabled = mAudioAnalyzer.isEnableRandomVariation();
+        if (switchFilterVariation != null) {
+            switchFilterVariation.setChecked(varEnabled);
+        }
+        if (containerFilterVariation != null) {
+            containerFilterVariation.setVisibility(varEnabled ? View.VISIBLE : View.GONE);
+        }
+        if (seekFilterVariation != null) {
+            float depth = mAudioAnalyzer.getRandomVariationDepth();
+            seekFilterVariation.setProgress(Math.max(0, Math.min(35, Math.round((depth - 0.05f) * 100.0f))));
+            if (tvFilterVariationVal != null) {
+                tvFilterVariationVal.setText(Math.round(depth * 100.0f) + "%");
+            }
+        }
+
+        // Filter 5: Limiter
+        if (switchFilterLimiter != null) {
+            switchFilterLimiter.setChecked(mAudioAnalyzer.isEnableLimiter());
+        }
+
+        // Threshold Gate switch
+        if (switchEngineBandThreshold != null) {
+            switchEngineBandThreshold.setChecked(mAudioAnalyzer.isEnableBandThreshold());
+        }
+
+        // Diagram Interval & Spectrum Gain
+        if (seekDiagramInterval != null) {
+            int currentMs = mAudioAnalyzer.getDiagramIntervalMs();
+            seekDiagramInterval.setProgress(intervalMsToProgress(currentMs));
+            if (tvDiagramIntervalVal != null) {
+                tvDiagramIntervalVal.setText(formatIntervalLabel(currentMs));
+            }
+        }
+        if (seekSpectrumGain != null) {
+            float gain = mAudioAnalyzer.getSpectrumVisualGain();
+            int prog = Math.round(((gain - 0.5f) / 2.5f) * 50.0f);
+            seekSpectrumGain.setProgress(Math.max(0, Math.min(50, prog)));
+            if (tvSpectrumGainVal != null) {
+                tvSpectrumGainVal.setText(String.format(java.util.Locale.US, "%.2fx", gain));
+            }
+        }
+    }
+
     private void applyAudioPreset(AudioPreset preset) {
         if (preset == null) return;
         mAudioAnalyzer.applyPreset(preset, this);
@@ -2697,6 +2874,7 @@ public class MainActivity extends Activity {
         }
         updateStudioSpectrumUI();
         updateStudioPatternsUI();
+        updateFiltersUI();
         updateEngineControls();
         updatePresetDropdownUI();
         updateHoldTimesUI();
@@ -2902,6 +3080,8 @@ public class MainActivity extends Activity {
                 containerLoudnessSlider.setVisibility(mAudioAnalyzer.isEnableLoudnessGate() ? View.VISIBLE : View.GONE);
             }
         }
+
+        updateFiltersUI();
     }
 
     @Override

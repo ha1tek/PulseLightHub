@@ -433,7 +433,7 @@ public class AudioPresetManager {
             p.id = "user_" + System.currentTimeMillis();
             p.isBuiltIn = false;
             if (p.name == null || p.name.trim().isEmpty()) {
-                p.name = "Импорт (" + (getUserPresets(context).size() + 1) + ")";
+                p.name = "Импорт №" + (getUserPresets(context).size() + 1);
             }
             saveUserPreset(context, p);
             setActivePresetId(context, p.id);

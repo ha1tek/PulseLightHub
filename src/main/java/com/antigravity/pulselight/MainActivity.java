@@ -2,8 +2,10 @@ package com.antigravity.pulselight;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.StatusBarManager;
 import android.content.ClipData;
 import android.content.ClipboardManager;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
@@ -14,6 +16,7 @@ import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.Icon;
 import android.graphics.drawable.LayerDrawable;
 import android.animation.ArgbEvaluator;
 import android.animation.ValueAnimator;
@@ -123,6 +126,10 @@ public class MainActivity extends Activity {
     private TextView tvBluetoothDelayValue;
     private SeekBar seekBluetoothDelay;
 
+    // Breathe QS Settings
+    private SeekBar seekBreatheInterval, seekBreatheDuration;
+    private TextView tvBreatheIntervalVal, tvBreatheDurationVal;
+
     // Glyph Beat Hold Times
     private ModernSwitch switchGlyphMinTime, switchGlyphMaxTime;
     private View containerGlyphMinTime, containerGlyphMaxTime;
@@ -167,6 +174,20 @@ public class MainActivity extends Activity {
 
     private AudioAnalyzer mAudioAnalyzer;
 
+    private final PulseLightingCoordinator.AudioEngineStateListener mAudioEngineListener =
+            enabled -> runOnUiThread(() -> {
+                updateEngineControls();
+                if (!enabled) {
+                    if (engineSpectrumVisualizer != null && mAudioAnalyzer != null) {
+                        engineSpectrumVisualizer.updateData(mAudioAnalyzer.getEmptyResult());
+                    }
+                    if (studioSpectrumVisualizer != null && mAudioAnalyzer != null) {
+                        studioSpectrumVisualizer.updateData(mAudioAnalyzer.getEmptyResult());
+                    }
+                    RealmeGlyphDriver.turnOff();
+                }
+            });
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -182,6 +203,14 @@ public class MainActivity extends Activity {
         RealmeGlyphDriver.init(this);
         updateDriverStatusBadge();
 
+        PulseLightingCoordinator.addAudioEngineStateListener(mAudioEngineListener);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO}, 1002);
+            }
+        }
+
         // If engine is not already running in background, keep it OFF on cold start
         if (!PulseAudioService.isRunning()) {
             AudioAnalyzer.setEngineEnabled(this, false);
@@ -192,9 +221,16 @@ public class MainActivity extends Activity {
     }
 
     @Override
+    protected void onDestroy() {
+        PulseLightingCoordinator.removeAudioEngineStateListener(mAudioEngineListener);
+        super.onDestroy();
+    }
+
+    @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
+        checkPendingProjectionRequest(intent);
     }
 
     @Override
@@ -206,6 +242,30 @@ public class MainActivity extends Activity {
         syncBluetoothDelayUI();
         updateEngineControls();
         attachFrameListener();
+        checkPendingProjectionRequest(getIntent());
+    }
+
+    private void checkPendingProjectionRequest(Intent intent) {
+        if (intent != null && intent.getBooleanExtra("request_projection", false)) {
+            intent.removeExtra("request_projection");
+            requestSystemAudioCapture();
+        }
+    }
+
+    private void requestSystemAudioCapture() {
+        if (PulseAudioService.hasProjectionData()) {
+            PulseLightingCoordinator.activateAudio(this);
+            return;
+        }
+        android.media.projection.MediaProjectionManager mpm =
+                (android.media.projection.MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+        if (mpm != null) {
+            try {
+                startActivityForResult(mpm.createScreenCaptureIntent(), REQUEST_MEDIA_PROJECTION);
+            } catch (Throwable t) {
+                Log.e(TAG, "MediaProjection intent failed: " + t);
+            }
+        }
     }
 
     @Override
@@ -1801,6 +1861,7 @@ public class MainActivity extends Activity {
         PulseLightManager.setMusicFlickerColor(this, color);
         PulseLightManager.setAlwaysOnColor(this, color);
         GlyphColorManager.setUnifiedColor(this, color);
+        PulseLightingCoordinator.onColorChanged(this, color);
     }
 
     private long mLastHardwareFlashTime = 0;
@@ -1868,33 +1929,19 @@ public class MainActivity extends Activity {
                 if (mIsUpdatingEngineUI) return;
 
                 if (isChecked) {
+                    PulseLightingCoordinator.stopAll(this);
                     if (PulseAudioService.hasProjectionData()) {
-                        PulseAudioService.startEngine(this);
+                        PulseLightingCoordinator.activateAudio(this);
                         if (tvEngineStatusDesc != null) {
                             tvEngineStatusDesc.setText("Аудио-движок активен • Системный звук");
                             tvEngineStatusDesc.setTextColor(ThemeManager.getAccentColor(this));
                         }
                         Toast.makeText(this, "Аудио-движок запущен", Toast.LENGTH_SHORT).show();
                     } else {
-                        android.media.projection.MediaProjectionManager mpm =
-                                (android.media.projection.MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
-                        if (mpm != null) {
-                            try {
-                                startActivityForResult(mpm.createScreenCaptureIntent(), REQUEST_MEDIA_PROJECTION);
-                            } catch (Throwable t) {
-                                Log.e(TAG, "MediaProjection intent failed: " + t);
-                                PulseAudioService.startEngine(this);
-                                if (tvEngineStatusDesc != null) {
-                                    tvEngineStatusDesc.setText("Аудио-движок активен • Системный звук");
-                                    tvEngineStatusDesc.setTextColor(ThemeManager.getAccentColor(this));
-                                }
-                            }
-                        } else {
-                            PulseAudioService.startEngine(this);
-                        }
+                        requestSystemAudioCapture();
                     }
                 } else {
-                    PulseAudioService.stopEngine(this);
+                    PulseLightingCoordinator.deactivateAudio(this);
                     if (tvEngineStatusDesc != null) {
                         tvEngineStatusDesc.setText("Аудио-движок выключен");
                         tvEngineStatusDesc.setTextColor(getColor(R.color.text_muted));
@@ -1905,7 +1952,7 @@ public class MainActivity extends Activity {
                     if (studioSpectrumVisualizer != null && mAudioAnalyzer != null) {
                         studioSpectrumVisualizer.updateData(mAudioAnalyzer.getEmptyResult());
                     }
-                    RealmeGlyphDriver.turnOff();
+                    RealmeGlyphDriver.turnOffImmediate();
                     Toast.makeText(this, "Аудио-движок остановлен", Toast.LENGTH_SHORT).show();
                 }
             });
@@ -1926,6 +1973,7 @@ public class MainActivity extends Activity {
         paletteAccentColor = findViewById(R.id.palette_accent_color);
         setupThemeControls();
         setupDeviceModelControls();
+        setupQuickSettingsTileControls();
 
         tvSensitivityValue = findViewById(R.id.tv_sensitivity_value);
         seekSensitivity = findViewById(R.id.seek_sensitivity);
@@ -2054,6 +2102,118 @@ public class MainActivity extends Activity {
         }
 
         updateDeviceModelUI(DeviceModelManager.getDeviceModel(this), false);
+    }
+
+    private void setupQuickSettingsTileControls() {
+        View btnAddEngine = findViewById(R.id.btn_add_tile_engine);
+        View btnAddGlow = findViewById(R.id.btn_add_tile_glow);
+        View btnAddBreathe = findViewById(R.id.btn_add_tile_breathe);
+
+        if (btnAddEngine != null) {
+            btnAddEngine.setOnClickListener(v -> {
+                v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+                requestAddQuickSettingsTile(PulseEngineTileService.class, "Аудиодвижок", R.drawable.ic_qs_engine);
+            });
+        }
+
+        if (btnAddGlow != null) {
+            btnAddGlow.setOnClickListener(v -> {
+                v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+                requestAddQuickSettingsTile(PulseGlowTileService.class, "Свечение", R.drawable.ic_qs_glow);
+            });
+        }
+
+        if (btnAddBreathe != null) {
+            btnAddBreathe.setOnClickListener(v -> {
+                v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+                requestAddQuickSettingsTile(PulseBreatheTileService.class, "Пульсация", R.drawable.ic_qs_breathe);
+            });
+        }
+
+        seekBreatheInterval = findViewById(R.id.seek_breathe_interval);
+        tvBreatheIntervalVal = findViewById(R.id.tv_breathe_interval_val);
+        seekBreatheDuration = findViewById(R.id.seek_breathe_duration);
+        tvBreatheDurationVal = findViewById(R.id.tv_breathe_duration_val);
+
+        int currentInterval = PulseLightingCoordinator.getBreatheIntervalMs(this);
+        int currentDuration = PulseLightingCoordinator.getBreatheDurationMs(this);
+
+        if (seekBreatheInterval != null) {
+            int prog = Math.max(0, Math.min(99, Math.round((currentInterval - 100) / 100.0f)));
+            seekBreatheInterval.setProgress(prog);
+            if (tvBreatheIntervalVal != null) {
+                float sec = (prog + 1) * 0.1f;
+                tvBreatheIntervalVal.setText(String.format(java.util.Locale.US, "%.1f с", sec));
+            }
+            seekBreatheInterval.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                @Override
+                public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                    float sec = (progress + 1) * 0.1f;
+                    int ms = Math.round(sec * 1000);
+                    if (tvBreatheIntervalVal != null) {
+                        tvBreatheIntervalVal.setText(String.format(java.util.Locale.US, "%.1f с", sec));
+                    }
+                    if (fromUser) {
+                        PulseLightingCoordinator.setBreatheIntervalMs(MainActivity.this, ms);
+                    }
+                }
+                @Override public void onStartTrackingTouch(SeekBar seekBar) {}
+                @Override public void onStopTrackingTouch(SeekBar seekBar) {}
+            });
+        }
+
+        if (seekBreatheDuration != null) {
+            int prog = Math.max(0, Math.min(99, Math.round((currentDuration - 100) / 100.0f)));
+            seekBreatheDuration.setProgress(prog);
+            if (tvBreatheDurationVal != null) {
+                float sec = (prog + 1) * 0.1f;
+                tvBreatheDurationVal.setText(String.format(java.util.Locale.US, "%.1f с", sec));
+            }
+            seekBreatheDuration.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                @Override
+                public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                    float sec = (progress + 1) * 0.1f;
+                    int ms = Math.round(sec * 1000);
+                    if (tvBreatheDurationVal != null) {
+                        tvBreatheDurationVal.setText(String.format(java.util.Locale.US, "%.1f с", sec));
+                    }
+                    if (fromUser) {
+                        PulseLightingCoordinator.setBreatheDurationMs(MainActivity.this, ms);
+                    }
+                }
+                @Override public void onStartTrackingTouch(SeekBar seekBar) {}
+                @Override public void onStopTrackingTouch(SeekBar seekBar) {}
+            });
+        }
+    }
+
+    private void requestAddQuickSettingsTile(Class<?> tileServiceClass, String label, int iconRes) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) { // Android 13+
+            try {
+                StatusBarManager sbm = getSystemService(StatusBarManager.class);
+                if (sbm != null) {
+                    ComponentName cn = new ComponentName(this, tileServiceClass);
+                    Icon icon = Icon.createWithResource(this, iconRes);
+                    sbm.requestAddTileService(
+                            cn,
+                            label,
+                            icon,
+                            r -> mainHandler.post(r),
+                            result -> {
+                                if (result == StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED) {
+                                    Toast.makeText(this, "Плитка «" + label + "» добавлена в шторку", Toast.LENGTH_SHORT).show();
+                                } else if (result == StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED) {
+                                    Toast.makeText(this, "Плитка «" + label + "» уже есть в шторке", Toast.LENGTH_SHORT).show();
+                                }
+                            }
+                    );
+                    return;
+                }
+            } catch (Throwable t) {
+                Log.w(TAG, "requestAddTileService failed: " + t);
+            }
+        }
+        Toast.makeText(this, "Откройте шторку и перетащите плитку «" + label + "»", Toast.LENGTH_LONG).show();
     }
 
     private void selectDeviceModel(int model) {
@@ -2249,6 +2409,10 @@ public class MainActivity extends Activity {
             if (view instanceof TextView) {
                 ((TextView) view).setTextColor(ThemeManager.getContrastTextColor(accentColor));
             }
+        } else if ("accent_tint".equals(tag)) {
+            if (view instanceof android.widget.ImageView) {
+                ((android.widget.ImageView) view).setImageTintList(ColorStateList.valueOf(accentColor));
+            }
         }
         if (view instanceof ViewGroup) {
             ViewGroup vg = (ViewGroup) view;
@@ -2277,7 +2441,8 @@ public class MainActivity extends Activity {
                 seekDiagramInterval, seekSpectrumGain, seekBandGain, seekBandThresh,
                 seekGlyphMinTime, seekGlyphMaxTime, seekLoudnessGate,
                 seekFilterFInterp, seekFilterVariation, seekSensitivity, seekDecay,
-                seekBluetoothDelay
+                seekBluetoothDelay,
+                seekBreatheInterval, seekBreatheDuration
         };
         for (SeekBar sb : seekBars) {
             if (sb == null) continue;
@@ -2303,7 +2468,8 @@ public class MainActivity extends Activity {
                 tvSelectedBandGainVal, tvSelectedBandThreshVal, tvSensitivityValue,
                 tvDecayValue, tvGlyphMinTimeVal, tvGlyphMaxTimeVal, tvLoudnessGateVal,
                 tvFilterFInterpVal, tvFilterVariationVal, tvDiagramIntervalVal,
-                tvSpectrumGainVal, tvPresetDropdownArrow, tvBluetoothDelayValue
+                tvSpectrumGainVal, tvPresetDropdownArrow, tvBluetoothDelayValue,
+                tvBreatheIntervalVal, tvBreatheDurationVal
         };
         for (TextView tv : accentViews) {
             if (tv != null) {
@@ -2841,7 +3007,7 @@ public class MainActivity extends Activity {
         if (mAudioAnalyzer == null) return;
         mAudioAnalyzer.loadSettings(this);
 
-        boolean isEngineOn = AudioAnalyzer.isEngineEnabled(this);
+        boolean isEngineOn = PulseAudioService.isEngineEnabled();
         mIsUpdatingEngineUI = true;
         if (switchAudioEngine != null) {
             switchAudioEngine.setChecked(isEngineOn);

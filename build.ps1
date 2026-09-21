@@ -57,9 +57,8 @@ $devicesList = (& $adb devices | Out-String)
 if ($devicesList -match [regex]::Escape($device) -or $devicesList -match "\bdevice\b") {
     & $adb -s $device install -r "$projectDir\build\PulseLightHub.apk"
     if ($LASTEXITCODE -eq 0) {
-        Write-Host "--- 9. Granting Audio & Media Permissions ---"
         & $adb -s $device shell pm grant com.antigravity.pulselight android.permission.RECORD_AUDIO
-        & $adb -s $device shell pm grant com.antigravity.pulselight android.permission.POST_NOTIFICATIONS
+        & $adb -s $device shell pm revoke com.antigravity.pulselight android.permission.POST_NOTIFICATIONS
         & $adb -s $device shell appops set com.antigravity.pulselight PROJECT_MEDIA allow
         & $adb -s $device shell settings put global customize_breath_light_time 00002359
         & $adb -s $device shell settings put global customize_breath_light_master_switch 1

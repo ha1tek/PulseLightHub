@@ -56,6 +56,7 @@ public class PulseAudioService extends Service {
     private Visualizer mVisualizer;
     private Thread mCaptureThread;
     private volatile boolean mIsRunning = false;
+    private volatile boolean mIsEngineEnabled = true;
 
     private int mCurrentBeatColor = GlyphColorManager.DEFAULT_BLUE;
     private int mPreviousActiveMask = 0;
@@ -72,6 +73,32 @@ public class PulseAudioService extends Service {
 
     public static boolean isRunning() {
         return sInstance != null && sInstance.mIsRunning;
+    }
+
+    public static boolean isEngineEnabled() {
+        return sInstance != null && sInstance.mIsRunning && sInstance.mIsEngineEnabled;
+    }
+
+    public static void pauseEngine() {
+        if (sInstance != null) {
+            sInstance.mIsEngineEnabled = false;
+            clearDelayQueue();
+            RealmeGlyphDriver.turnOffImmediate();
+            sInstance.mPreviousActiveMask = 0;
+            sInstance.mLastScheduledMask = 0;
+            AudioAnalyzer.setEngineEnabled(sInstance, false);
+            PulseLightingCoordinator.updateAllTiles(sInstance);
+            PulseLightingCoordinator.notifyEngineStateChanged(false);
+        }
+    }
+
+    public static void resumeEngine() {
+        if (sInstance != null) {
+            sInstance.mIsEngineEnabled = true;
+            AudioAnalyzer.setEngineEnabled(sInstance, true);
+            PulseLightingCoordinator.updateAllTiles(sInstance);
+            PulseLightingCoordinator.notifyEngineStateChanged(true);
+        }
     }
 
     public static void startAutoCalibration(AudioAnalyzer.CalibrationCallback callback) {
@@ -161,6 +188,8 @@ public class PulseAudioService extends Service {
             context.startService(intent);
         }
         AudioAnalyzer.setEngineEnabled(context, true);
+        PulseLightingCoordinator.updateAllTiles(context);
+        PulseLightingCoordinator.notifyEngineStateChanged(true);
     }
 
     public static void startSystemAudioEngine(Context context, int resultCode, Intent data) {
@@ -176,14 +205,25 @@ public class PulseAudioService extends Service {
             context.startService(intent);
         }
         AudioAnalyzer.setEngineEnabled(context, true);
+        PulseLightingCoordinator.updateAllTiles(context);
+        PulseLightingCoordinator.notifyEngineStateChanged(true);
     }
 
     public static void stopEngine(Context context) {
+        if (sInstance != null) {
+            sInstance.mIsRunning = false;
+            sInstance.stopCaptureThreadInternal();
+        }
         clearDelayQueue();
         Intent intent = new Intent(context, PulseAudioService.class);
         context.stopService(intent);
+        if (sInstance != null) {
+            sInstance.stopSelf();
+        }
         AudioAnalyzer.setEngineEnabled(context, false);
-        RealmeGlyphDriver.turnOff();
+        RealmeGlyphDriver.turnOffImmediate();
+        PulseLightingCoordinator.updateAllTiles(context);
+        PulseLightingCoordinator.notifyEngineStateChanged(false);
     }
 
     @Override
@@ -241,12 +281,12 @@ public class PulseAudioService extends Service {
 
         builder.setContentTitle("Pulse Light Hub")
                 .setContentText("Аудио-движок активен • Системный звук")
-                .setSmallIcon(R.drawable.ic_soundwave_black)
+                .setSmallIcon(R.drawable.ic_qs_engine)
                 .setContentIntent(pendingIntent)
                 .setOngoing(true);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            builder.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE);
+            builder.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_DEFERRED);
         }
 
         Notification notification = builder.build();
@@ -273,10 +313,13 @@ public class PulseAudioService extends Service {
             NotificationChannel channel = new NotificationChannel(
                     CHANNEL_ID,
                     "Pulse Audio Engine",
-                    NotificationManager.IMPORTANCE_LOW
+                    NotificationManager.IMPORTANCE_MIN
             );
-            channel.setDescription("Фоновый аудио-движок подсветки Realme GT 5");
+            channel.setDescription("Фоновый аудио-движок подсветки");
             channel.setShowBadge(false);
+            channel.enableLights(false);
+            channel.enableVibration(false);
+            channel.setSound(null, null);
             NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
             if (nm != null) {
                 nm.createNotificationChannel(channel);
@@ -293,6 +336,7 @@ public class PulseAudioService extends Service {
             }
         }
         mIsRunning = true;
+        mIsEngineEnabled = true;
 
         mCaptureThread = new Thread(() -> {
             mAnalyzer.loadSettings(PulseAudioService.this);
@@ -300,7 +344,7 @@ public class PulseAudioService extends Service {
             if (mMediaProjection != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 runPlaybackCaptureLoop(mMediaProjection);
             } else {
-                runVisualizerLoop();
+                Log.w(TAG, "No MediaProjection available - waiting for system audio projection without mic fallback");
             }
         }, "PulseAudioSystemLoop");
 
@@ -319,11 +363,11 @@ public class PulseAudioService extends Service {
     }
 
     /**
-     * Pure System Audio Capture via Android 10+ AudioPlaybackCaptureConfiguration.
-     * ZERO microphone usage. 100% digital capture of media, games, and system sound.
+     * Captures internal digital system audio via AudioPlaybackCapture.
+     * ZERO microphone usage, ZERO ambient noise.
      */
     private void runPlaybackCaptureLoop(MediaProjection projection) {
-        Log.i(TAG, "Starting AudioPlaybackCapture (PURE SYSTEM AUDIO) loop...");
+        Log.i(TAG, "Starting AudioPlaybackCapture loop (pure digital system sound, zero microphone)...");
         int sampleRate = 44100;
         int channelConfig = AudioFormat.CHANNEL_IN_MONO;
         int audioEncoding = AudioFormat.ENCODING_PCM_16BIT;
@@ -352,9 +396,8 @@ public class PulseAudioService extends Service {
                         .build();
 
                 if (mAudioRecord.getState() != AudioRecord.STATE_INITIALIZED) {
-                    Log.e(TAG, "AudioPlaybackCapture AudioRecord failed to initialize, falling back to Visualizer...");
+                    Log.e(TAG, "AudioPlaybackCapture AudioRecord failed to initialize");
                     releaseAudioRecord();
-                    runVisualizerLoop();
                     return;
                 }
 
@@ -387,8 +430,6 @@ public class PulseAudioService extends Service {
                     AudioAnalyzer.AnalysisResult result = mAnalyzer.processPcm(pcmBuffer, read, sampleRate);
                     routeAnalysisResult(result);
                 }
-            } else {
-                runVisualizerLoop();
             }
         } catch (Throwable t) {
             Log.e(TAG, "PlaybackCapture error: " + t.getMessage(), t);
@@ -397,61 +438,22 @@ public class PulseAudioService extends Service {
         }
     }
 
-    /**
-     * Fallback system audio capture via Visualizer(0) session.
-     * Strictly system output mix - ZERO microphone usage.
-     */
     private void runVisualizerLoop() {
-        Log.i(TAG, "Starting Visualizer capture loop (System Audio session 0)...");
-        try {
-            int[] range = Visualizer.getCaptureSizeRange();
-            int captureSize = Math.min(1024, range[1]);
-
-            mVisualizer = new Visualizer(0);
-            mVisualizer.setEnabled(false);
-            mVisualizer.setCaptureSize(captureSize);
-            mVisualizer.setEnabled(true);
-
-            int samplingRate = mVisualizer.getSamplingRate() / 1000;
-            if (samplingRate <= 0) samplingRate = 48000;
-
-            byte[] fftBuffer = new byte[captureSize];
-
-            while (mIsRunning) {
-                int status = mVisualizer.getFft(fftBuffer);
-                if (status != Visualizer.SUCCESS) {
-                    Thread.sleep(25);
-                    continue;
-                }
-
-                boolean isSilent = true;
-                for (int i = 0; i < Math.min(fftBuffer.length, 32); i++) {
-                    if (fftBuffer[i] != 0 && fftBuffer[i] != -1) {
-                        isSilent = false;
-                        break;
-                    }
-                }
-
-                if (isSilent) {
-                    routeAnalysisResult(mAnalyzer.getEmptyResult());
-                    Thread.sleep(60);
-                    continue;
-                }
-
-                AudioAnalyzer.AnalysisResult result = mAnalyzer.processFft(fftBuffer, samplingRate);
-                routeAnalysisResult(result);
-
-                Thread.sleep(12);
-            }
-        } catch (Throwable t) {
-            Log.w(TAG, "Visualizer loop error: " + t.getMessage());
-        } finally {
-            releaseVisualizer();
-        }
+        // Disabled: Pure system audio only, microphone fallback disabled
     }
 
     private void routeAnalysisResult(AudioAnalyzer.AnalysisResult result) {
         if (result == null || mDelayHandler == null) return;
+
+        if (!mIsEngineEnabled && !isCalibrating()) {
+            if (mPreviousActiveMask != 0 || mLastScheduledMask != 0) {
+                clearDelayQueue();
+                RealmeGlyphDriver.turnOffImmediate();
+                mPreviousActiveMask = 0;
+                mLastScheduledMask = 0;
+            }
+            return;
+        }
 
         boolean delayEnabled = mAnalyzer != null && mAnalyzer.isBluetoothDelayEnabled();
         int delayMs = (mAnalyzer != null) ? mAnalyzer.getBluetoothDelayMs() : 0;
@@ -476,6 +478,14 @@ public class PulseAudioService extends Service {
     }
 
     private void dispatchAnalysisResult(AudioAnalyzer.AnalysisResult result) {
+        if (!mIsEngineEnabled && !isCalibrating()) {
+            if (mPreviousActiveMask != 0) {
+                RealmeGlyphDriver.turnOffImmediate();
+                mPreviousActiveMask = 0;
+            }
+            return;
+        }
+
         int colorMode = GlyphColorManager.getColorMode(PulseAudioService.this);
         boolean isNeo5 = DeviceModelManager.isGtNeo5(PulseAudioService.this);
 
@@ -548,14 +558,13 @@ public class PulseAudioService extends Service {
     @Override
     public void onTaskRemoved(Intent rootIntent) {
         super.onTaskRemoved(rootIntent);
-        Log.i(TAG, "Application swiped from Recents, stopping audio engine and turning off lights...");
-        stopEngine(this);
-        stopSelf();
+        Log.i(TAG, "Application swiped from Recents, keeping audio engine running in background...");
     }
 
     @Override
     public void onDestroy() {
         mIsRunning = false;
+        mIsEngineEnabled = false;
         if (mCaptureThread != null) {
             mCaptureThread.interrupt();
             mCaptureThread = null;
@@ -574,6 +583,7 @@ public class PulseAudioService extends Service {
         mMediaProjection = null;
         RealmeGlyphDriver.turnOff();
         sInstance = null;
+        PulseLightingCoordinator.updateAllTiles(this);
         super.onDestroy();
     }
 

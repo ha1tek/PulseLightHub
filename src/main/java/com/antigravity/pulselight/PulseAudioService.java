@@ -46,8 +46,7 @@ public class PulseAudioService extends Service {
     private static MediaProjection sActiveMediaProjection = null;
 
     public static boolean hasProjectionData() {
-        return (sLastProjectionResultCode == Activity.RESULT_OK && sLastProjectionData != null)
-                || sActiveMediaProjection != null;
+        return sActiveMediaProjection != null;
     }
 
     private AudioAnalyzer mAnalyzer;
@@ -210,8 +209,12 @@ public class PulseAudioService extends Service {
     }
 
     public static void stopEngine(Context context) {
+        sActiveMediaProjection = null;
+        sLastProjectionData = null;
+        sLastProjectionResultCode = Activity.RESULT_CANCELED;
         if (sInstance != null) {
             sInstance.mIsRunning = false;
+            sInstance.mMediaProjection = null;
             sInstance.stopCaptureThreadInternal();
         }
         clearDelayQueue();
@@ -248,6 +251,7 @@ public class PulseAudioService extends Service {
                             public void onStop() {
                                 Log.i(TAG, "MediaProjection stopped by system");
                                 sActiveMediaProjection = null;
+                                mMediaProjection = null;
                                 sLastProjectionData = null;
                                 sLastProjectionResultCode = Activity.RESULT_CANCELED;
                                 stopEngine(PulseAudioService.this);
@@ -335,6 +339,12 @@ public class PulseAudioService extends Service {
                 return;
             }
         }
+        if (mMediaProjection == null) {
+            Log.w(TAG, "No MediaProjection available - capture loop cannot start");
+            mIsRunning = false;
+            return;
+        }
+
         mIsRunning = true;
         mIsEngineEnabled = true;
 
@@ -343,8 +353,6 @@ public class PulseAudioService extends Service {
 
             if (mMediaProjection != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 runPlaybackCaptureLoop(mMediaProjection);
-            } else {
-                Log.w(TAG, "No MediaProjection available - waiting for system audio projection without mic fallback");
             }
         }, "PulseAudioSystemLoop");
 
@@ -410,6 +418,10 @@ public class PulseAudioService extends Service {
                     int read = mAudioRecord.read(pcmBuffer, 0, pcmBuffer.length);
                     if (read <= 0) {
                         Thread.sleep(10);
+                        continue;
+                    }
+
+                    if (!mIsEngineEnabled && !isCalibrating()) {
                         continue;
                     }
 
@@ -580,6 +592,9 @@ public class PulseAudioService extends Service {
         }
         releaseAudioRecord();
         releaseVisualizer();
+        sActiveMediaProjection = null;
+        sLastProjectionData = null;
+        sLastProjectionResultCode = Activity.RESULT_CANCELED;
         mMediaProjection = null;
         RealmeGlyphDriver.turnOff();
         sInstance = null;

@@ -58,8 +58,16 @@ public class GlyphColorManager {
     }
 
     public static int getUnifiedColor(Context context) {
+        if (context == null) return DEFAULT_PURPLE;
         SharedPreferences sp = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        return sp.getInt(KEY_UNIFIED, DEFAULT_PURPLE);
+        if (sp.contains(KEY_UNIFIED)) {
+            return sp.getInt(KEY_UNIFIED, DEFAULT_PURPLE);
+        }
+        int alwaysOn = PulseLightManager.getAlwaysOnColor(context);
+        if (alwaysOn != 0) {
+            return alwaysOn;
+        }
+        return DEFAULT_PURPLE;
     }
 
     public static void setUnifiedColor(Context context, int color) {

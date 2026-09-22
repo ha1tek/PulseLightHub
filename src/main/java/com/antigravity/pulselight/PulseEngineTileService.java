@@ -21,17 +21,12 @@ public class PulseEngineTileService extends TileService {
     public void onClick() {
         super.onClick();
         try {
-            boolean isRunning = PulseAudioService.isRunning();
-            boolean isEnabled = PulseAudioService.isEngineEnabled();
-
-            if (isRunning) {
-                if (isEnabled) {
+            if (PulseAudioService.hasProjectionData()) {
+                if (PulseAudioService.isEngineEnabled()) {
                     PulseLightingCoordinator.deactivateAudio(this);
                 } else {
                     PulseLightingCoordinator.activateAudio(this);
                 }
-            } else if (PulseAudioService.hasProjectionData()) {
-                PulseLightingCoordinator.activateAudio(this);
             } else {
                 Intent intent = new Intent(this, MainActivity.class);
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);

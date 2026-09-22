@@ -184,7 +184,9 @@ public class MainActivity extends Activity {
                     if (studioSpectrumVisualizer != null && mAudioAnalyzer != null) {
                         studioSpectrumVisualizer.updateData(mAudioAnalyzer.getEmptyResult());
                     }
-                    RealmeGlyphDriver.turnOff();
+                    if (PulseLightingCoordinator.getMode(MainActivity.this) == PulseLightingCoordinator.MODE_NONE) {
+                        RealmeGlyphDriver.turnOff();
+                    }
                 }
             });
 
@@ -2072,6 +2074,9 @@ public class MainActivity extends Activity {
             paletteAccentColor.setOnColorSelectedListener((color, name) -> {
                 ThemeManager.setAccentColor(MainActivity.this, color);
                 applyThemeColors(ThemeManager.getBackgroundColor(MainActivity.this), color);
+                saveTargetColor(color);
+                syncColorTargetUI();
+                RealmeGlyphDriver.flashSegment(RealmeGlyphDriver.LED_ALL, color, 400);
                 Toast.makeText(MainActivity.this, "Акцент: " + name, Toast.LENGTH_SHORT).show();
             });
         }

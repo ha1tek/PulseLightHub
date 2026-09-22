@@ -43,9 +43,11 @@
             </intent-filter>
         </activity>
 
+
         <service
             android:name=".PulseAudioService"
             android:foregroundServiceType="mediaProjection|mediaPlayback"
+            android:stopWithTask="false"
             android:exported="false" />
 
         <service

@@ -98,7 +98,7 @@ public class PulseLightingCoordinator {
         if (PulseAudioService.isRunning()) {
             PulseAudioService.pauseEngine();
         }
-        stopNonAudioLighting();
+        stopBreatheLoop();
         sCurrentMode = MODE_GLOW;
 
         RealmeGlyphDriver.init(context);
@@ -121,7 +121,7 @@ public class PulseLightingCoordinator {
         if (PulseAudioService.isRunning()) {
             PulseAudioService.pauseEngine();
         }
-        stopNonAudioLighting();
+        stopBreatheLoop();
         sCurrentMode = MODE_BREATHE;
 
         RealmeGlyphDriver.init(context);

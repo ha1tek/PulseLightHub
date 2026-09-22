@@ -1362,6 +1362,43 @@ public class MainActivity extends Activity {
                 tvLoudnessGateVal.setText(progress + "%");
             }
         }
+
+        // Filter 3: FInterp
+        if (switchFilterFInterp != null) {
+            boolean enabled = mAudioAnalyzer.isEnableFInterp();
+            switchFilterFInterp.setChecked(enabled);
+            if (containerFilterFInterp != null) {
+                containerFilterFInterp.setVisibility(enabled ? View.VISIBLE : View.GONE);
+            }
+        }
+        if (seekFilterFInterp != null) {
+            float sp = mAudioAnalyzer.getFInterpSpeed();
+            seekFilterFInterp.setProgress(Math.max(0, Math.min(45, Math.round(sp - 5.0f))));
+            if (tvFilterFInterpVal != null) {
+                tvFilterFInterpVal.setText(String.format(java.util.Locale.US, "%.1f", sp));
+            }
+        }
+
+        // Filter 4: Random Variation
+        if (switchFilterVariation != null) {
+            boolean enabled = mAudioAnalyzer.isEnableRandomVariation();
+            switchFilterVariation.setChecked(enabled);
+            if (containerFilterVariation != null) {
+                containerFilterVariation.setVisibility(enabled ? View.VISIBLE : View.GONE);
+            }
+        }
+        if (seekFilterVariation != null) {
+            float depth = mAudioAnalyzer.getRandomVariationDepth();
+            seekFilterVariation.setProgress(Math.max(0, Math.min(35, Math.round((depth - 0.05f) * 100.0f))));
+            if (tvFilterVariationVal != null) {
+                tvFilterVariationVal.setText(Math.round(depth * 100.0f) + "%");
+            }
+        }
+
+        // Filter 5: Peak Limiter
+        if (switchFilterLimiter != null) {
+            switchFilterLimiter.setChecked(mAudioAnalyzer.isEnableLimiter());
+        }
     }
 
     private static final String[] NARROW_BAND_NAMES = {"SUB 20-80 Гц", "KICK 80-180 Гц", "SNARE 220-900 Гц", "TREBLE 3.5-12 кГц"};
@@ -2264,6 +2301,8 @@ public class MainActivity extends Activity {
         updateStudioPatternsUI();
         updateEngineControls();
         updatePresetDropdownUI();
+        updateHoldTimesUI();
+        syncBluetoothDelayUI();
 
         if (btnModelGt5 != null) {
             btnModelGt5.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
@@ -2871,6 +2910,7 @@ public class MainActivity extends Activity {
         updateEngineControls();
         updatePresetDropdownUI();
         updateHoldTimesUI();
+        syncBluetoothDelayUI();
         Toast.makeText(this, "Применен пресет: " + preset.name, Toast.LENGTH_SHORT).show();
     }
 

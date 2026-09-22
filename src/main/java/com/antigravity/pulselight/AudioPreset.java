@@ -31,12 +31,19 @@ public class AudioPreset {
     public boolean enableRandomVariation = false;
     public float randomVariationDepth = 0.15f;
     public boolean enableLimiter = false;
+    public int diagramIntervalMs = 10;
+    public float spectrumVisualGain = 1.40f;
+    public boolean enableBandThreshold = true;
+    public boolean enableBluetoothDelay = false;
+    public int bluetoothDelayMs = 150;
     public float[] narrowGains = new float[]{1.0f, 1.0f, 1.0f, 1.0f};
     public float[] wideGains = new float[]{1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
     public float[] narrowThresholds = new float[]{0.15f, 0.15f, 0.15f, 0.15f};
     public float[] wideThresholds = new float[]{0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f};
     public boolean[] narrowEnabled = new boolean[]{true, true, true, true};
     public boolean[] wideEnabled = new boolean[]{true, true, true, true, true, true, true, true, true, true, true, true};
+    public boolean[] narrowColorCycle = new boolean[]{false, false, false, false};
+    public boolean[] wideColorCycle = new boolean[12];
 
     // Per-band trigger patterns
     public int[] narrowPatterns = new int[]{
@@ -106,6 +113,11 @@ public class AudioPreset {
             obj.put("enableRandomVariation", enableRandomVariation);
             obj.put("randomVariationDepth", (double) randomVariationDepth);
             obj.put("enableLimiter", enableLimiter);
+            obj.put("diagramIntervalMs", diagramIntervalMs);
+            obj.put("enableBandThreshold", enableBandThreshold);
+            obj.put("spectrumVisualGain", (double) spectrumVisualGain);
+            obj.put("enableBluetoothDelay", enableBluetoothDelay);
+            obj.put("bluetoothDelayMs", bluetoothDelayMs);
 
             JSONArray ng = new JSONArray();
             if (narrowGains != null) {
@@ -154,6 +166,18 @@ public class AudioPreset {
                 for (boolean b : wideEnabled) we.put(b);
             }
             obj.put("wideEnabled", we);
+
+            JSONArray ncc = new JSONArray();
+            if (narrowColorCycle != null) {
+                for (boolean b : narrowColorCycle) ncc.put(b);
+            }
+            obj.put("narrowColorCycle", ncc);
+
+            JSONArray wcc = new JSONArray();
+            if (wideColorCycle != null) {
+                for (boolean b : wideColorCycle) wcc.put(b);
+            }
+            obj.put("wideColorCycle", wcc);
         } catch (JSONException ignored) {}
         return obj;
     }
@@ -189,6 +213,11 @@ public class AudioPreset {
             p.enableRandomVariation = obj.optBoolean("enableRandomVariation", false);
             p.randomVariationDepth = (float) obj.optDouble("randomVariationDepth", 0.15);
             p.enableLimiter = obj.optBoolean("enableLimiter", false);
+            p.diagramIntervalMs = obj.optInt("diagramIntervalMs", 10);
+            p.enableBandThreshold = obj.optBoolean("enableBandThreshold", true);
+            p.spectrumVisualGain = (float) obj.optDouble("spectrumVisualGain", 1.40);
+            p.enableBluetoothDelay = obj.optBoolean("enableBluetoothDelay", false);
+            p.bluetoothDelayMs = obj.optInt("bluetoothDelayMs", 150);
 
             JSONArray ng = obj.optJSONArray("narrowGains");
             if (ng != null) {
@@ -240,6 +269,22 @@ public class AudioPreset {
                 for (int i = 0; i < we.length(); i++) p.wideEnabled[i] = we.optBoolean(i, true);
             } else {
                 p.wideEnabled = new boolean[]{true, true, true, true, true, true, true, true, true, true, true, true};
+            }
+
+            JSONArray ncc = obj.optJSONArray("narrowColorCycle");
+            if (ncc != null) {
+                p.narrowColorCycle = new boolean[Math.max(4, ncc.length())];
+                for (int i = 0; i < ncc.length(); i++) p.narrowColorCycle[i] = ncc.optBoolean(i, false);
+            } else {
+                p.narrowColorCycle = new boolean[]{false, false, false, false};
+            }
+
+            JSONArray wcc = obj.optJSONArray("wideColorCycle");
+            if (wcc != null) {
+                p.wideColorCycle = new boolean[Math.max(12, wcc.length())];
+                for (int i = 0; i < wcc.length(); i++) p.wideColorCycle[i] = wcc.optBoolean(i, false);
+            } else {
+                p.wideColorCycle = new boolean[12];
             }
         } catch (Throwable ignored) {}
         return p;

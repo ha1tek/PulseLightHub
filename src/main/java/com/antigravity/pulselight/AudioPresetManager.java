@@ -28,20 +28,35 @@ public class AudioPresetManager {
     public static final String PRESET_NEO5_MINIMAL_BASS_ID = "neo5_minimal_bass";
 
     public static AudioPreset createStudioProPreset() {
-        AudioPreset p = new AudioPreset(PRESET_STUDIO_PRO_ID, "Студийный Pro", true);
+        AudioPreset p = new AudioPreset(PRESET_STUDIO_PRO_ID, "Студийный Pro", true, DeviceModelManager.MODEL_GT_5);
         p.fftSize = 4096;
         p.useTukeyWindow = true;
         p.triggerMode = AudioAnalyzer.MODE_CUSTOM_PATTERN;
         p.patternIndex = AudioAnalyzer.PATTERN_ALL;
         p.spectrumMode = AudioAnalyzer.SPECTRUM_MODE_WIDE;
         p.studioAnalysisMode = AudioAnalyzer.STUDIO_MODE_DEEP;
+        p.quickTriggerPreset = 0;
         p.sensitivity = 1.45f;
         p.decayMs = 85;
+        p.diagramIntervalMs = 10;
+        p.spectrumVisualGain = 1.40f;
+        p.enableBandThreshold = true;
+        p.enableBluetoothDelay = false;
+        p.bluetoothDelayMs = 150;
         p.enableOnset = true;
         p.enableLoudnessGate = true;
         p.loudnessGateThreshold = 0.08f;
         p.enableCentroid = false;
         p.centroidMode = 0;
+        p.enableMinHoldTime = true;
+        p.minHoldTimeMs = 35;
+        p.enableMaxHoldTime = true;
+        p.maxHoldTimeMs = 260;
+        p.enableFInterp = false;
+        p.fInterpSpeed = 14.0f;
+        p.enableRandomVariation = false;
+        p.randomVariationDepth = 0.12f;
+        p.enableLimiter = true;
         p.narrowGains = new float[]{2.0f, 1.7f, 1.2f, 0.9f};
         p.wideGains = new float[]{2.2f, 2.0f, 1.8f, 1.6f, 1.3f, 1.1f, 1.0f, 0.9f, 0.9f, 0.8f, 0.8f, 0.8f};
         p.narrowPatterns = new int[]{AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_TOP_BOTTOM, AudioAnalyzer.PATTERN_LEFT_RIGHT, AudioAnalyzer.PATTERN_ALL};
@@ -55,11 +70,13 @@ public class AudioPresetManager {
         p.wideThresholds = new float[]{0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f};
         p.narrowEnabled = new boolean[]{true, true, true, true};
         p.wideEnabled = new boolean[]{true, true, true, true, true, true, true, true, true, true, true, true};
+        p.narrowColorCycle = new boolean[]{false, false, false, false};
+        p.wideColorCycle = new boolean[12];
         return p;
     }
 
     public static AudioPreset createNothingPurePreset() {
-        AudioPreset p = new AudioPreset(PRESET_NOTHING_PURE_ID, "Nothing Phone Pure", true);
+        AudioPreset p = new AudioPreset(PRESET_NOTHING_PURE_ID, "Nothing Phone Pure", true, DeviceModelManager.MODEL_GT_5);
         p.fftSize = 1024;
         p.useTukeyWindow = false;
         p.triggerMode = AudioAnalyzer.MODE_CUSTOM_PATTERN;
@@ -69,39 +86,93 @@ public class AudioPresetManager {
         p.quickTriggerPreset = AudioAnalyzer.QUICK_PRESET_KICK_BASS_ONLY;
         p.sensitivity = 1.40f;
         p.decayMs = 70;
+        p.diagramIntervalMs = 10;
+        p.spectrumVisualGain = 1.30f;
+        p.enableBandThreshold = true;
+        p.enableBluetoothDelay = false;
+        p.bluetoothDelayMs = 150;
         p.enableOnset = true;
         p.enableLoudnessGate = false;
+        p.loudnessGateThreshold = 0.15f;
+        p.enableCentroid = false;
+        p.centroidMode = 0;
+        p.enableMinHoldTime = true;
+        p.minHoldTimeMs = 40;
+        p.enableMaxHoldTime = false;
+        p.maxHoldTimeMs = 250;
+        p.enableFInterp = false;
+        p.fInterpSpeed = 12.0f;
+        p.enableRandomVariation = false;
+        p.randomVariationDepth = 0.15f;
+        p.enableLimiter = false;
         p.narrowGains = new float[]{1.0f, 1.0f, 1.0f, 1.0f};
         p.wideGains = new float[]{1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
         p.narrowPatterns = new int[]{AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_OFF, AudioAnalyzer.PATTERN_OFF};
+        p.widePatterns = new int[]{
+                AudioAnalyzer.PATTERN_BOTTOM, AudioAnalyzer.PATTERN_TOP_BOTTOM, AudioAnalyzer.PATTERN_BOTTOM,
+                AudioAnalyzer.PATTERN_LEFT_RIGHT, AudioAnalyzer.PATTERN_LEFT, AudioAnalyzer.PATTERN_RIGHT,
+                AudioAnalyzer.PATTERN_LEFT_RIGHT, AudioAnalyzer.PATTERN_TOP_LEFT, AudioAnalyzer.PATTERN_TOP_RIGHT,
+                AudioAnalyzer.PATTERN_TOP, AudioAnalyzer.PATTERN_TOP_BOTTOM, AudioAnalyzer.PATTERN_ALL
+        };
         p.narrowThresholds = new float[]{0.15f, 0.15f, 0.15f, 0.15f};
         p.wideThresholds = new float[]{0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f};
+        p.narrowEnabled = new boolean[]{true, true, false, false};
+        p.wideEnabled = new boolean[]{true, true, true, true, false, false, false, false, false, false, false, false};
+        p.narrowColorCycle = new boolean[]{false, false, false, false};
+        p.wideColorCycle = new boolean[12];
         return p;
     }
 
     public static AudioPreset createPhonk808Preset() {
-        AudioPreset p = new AudioPreset(PRESET_PHONK_808_ID, "Phonk / 808 Bass", true);
+        AudioPreset p = new AudioPreset(PRESET_PHONK_808_ID, "Phonk / 808 Bass", true, DeviceModelManager.MODEL_GT_5);
         p.fftSize = 2048;
         p.useTukeyWindow = true;
         p.triggerMode = AudioAnalyzer.MODE_CUSTOM_PATTERN;
         p.patternIndex = AudioAnalyzer.PATTERN_ALL;
         p.spectrumMode = AudioAnalyzer.SPECTRUM_MODE_WIDE;
         p.studioAnalysisMode = AudioAnalyzer.STUDIO_MODE_DEEP;
+        p.quickTriggerPreset = 0;
         p.sensitivity = 1.20f;
         p.decayMs = 130;
+        p.diagramIntervalMs = 15;
+        p.spectrumVisualGain = 1.50f;
+        p.enableBandThreshold = true;
+        p.enableBluetoothDelay = false;
+        p.bluetoothDelayMs = 150;
         p.enableOnset = true;
         p.enableLoudnessGate = true;
         p.loudnessGateThreshold = 0.10f;
+        p.enableCentroid = false;
+        p.centroidMode = 0;
+        p.enableMinHoldTime = true;
+        p.minHoldTimeMs = 50;
+        p.enableMaxHoldTime = true;
+        p.maxHoldTimeMs = 300;
+        p.enableFInterp = true;
+        p.fInterpSpeed = 10.0f;
+        p.enableRandomVariation = false;
+        p.randomVariationDepth = 0.15f;
+        p.enableLimiter = true;
         p.narrowGains = new float[]{2.2f, 1.8f, 1.0f, 0.8f};
         p.wideGains = new float[]{2.4f, 2.2f, 2.0f, 1.5f, 1.2f, 1.0f, 0.9f, 0.8f, 0.8f, 0.7f, 0.7f, 0.7f};
         p.narrowPatterns = new int[]{AudioAnalyzer.PATTERN_BOTTOM, AudioAnalyzer.PATTERN_TOP_BOTTOM, AudioAnalyzer.PATTERN_OFF, AudioAnalyzer.PATTERN_OFF};
+        p.widePatterns = new int[]{
+                AudioAnalyzer.PATTERN_BOTTOM, AudioAnalyzer.PATTERN_BOTTOM, AudioAnalyzer.PATTERN_TOP_BOTTOM,
+                AudioAnalyzer.PATTERN_LEFT_RIGHT, AudioAnalyzer.PATTERN_OFF, AudioAnalyzer.PATTERN_OFF,
+                AudioAnalyzer.PATTERN_OFF, AudioAnalyzer.PATTERN_OFF, AudioAnalyzer.PATTERN_OFF,
+                AudioAnalyzer.PATTERN_OFF, AudioAnalyzer.PATTERN_OFF, AudioAnalyzer.PATTERN_OFF
+        };
         p.narrowThresholds = new float[]{0.18f, 0.18f, 0.15f, 0.15f};
         p.wideThresholds = new float[]{0.15f, 0.15f, 0.15f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f};
+        p.narrowEnabled = new boolean[]{true, true, false, false};
+        p.wideEnabled = new boolean[]{true, true, true, true, false, false, false, false, false, false, false, false};
+        p.narrowColorCycle = new boolean[]{false, false, false, false};
+        p.wideColorCycle = new boolean[12];
         return p;
     }
 
     public static AudioPreset createRockDrumsPreset() {
-        AudioPreset p = new AudioPreset(PRESET_ROCK_DRUMS_ID, "Rock / Drums", true);
+        AudioPreset p = new AudioPreset(PRESET_ROCK_DRUMS_ID, "Rock / Drums", true, DeviceModelManager.MODEL_GT_5);
         p.fftSize = 1024;
         p.useTukeyWindow = false;
         p.triggerMode = AudioAnalyzer.MODE_CUSTOM_PATTERN;
@@ -111,18 +182,45 @@ public class AudioPresetManager {
         p.quickTriggerPreset = AudioAnalyzer.QUICK_PRESET_CLASSIC_SPLIT;
         p.sensitivity = 1.30f;
         p.decayMs = 80;
+        p.diagramIntervalMs = 10;
+        p.spectrumVisualGain = 1.40f;
+        p.enableBandThreshold = true;
+        p.enableBluetoothDelay = false;
+        p.bluetoothDelayMs = 150;
         p.enableOnset = true;
         p.enableLoudnessGate = false;
+        p.loudnessGateThreshold = 0.15f;
+        p.enableCentroid = false;
+        p.centroidMode = 0;
+        p.enableMinHoldTime = true;
+        p.minHoldTimeMs = 35;
+        p.enableMaxHoldTime = true;
+        p.maxHoldTimeMs = 220;
+        p.enableFInterp = false;
+        p.fInterpSpeed = 12.0f;
+        p.enableRandomVariation = true;
+        p.randomVariationDepth = 0.15f;
+        p.enableLimiter = true;
         p.narrowGains = new float[]{1.1f, 1.4f, 1.5f, 1.1f};
         p.wideGains = new float[]{1.1f, 1.3f, 1.4f, 1.5f, 1.2f, 1.1f, 1.0f, 1.0f, 0.9f, 0.9f, 0.9f, 0.9f};
         p.narrowPatterns = new int[]{AudioAnalyzer.PATTERN_BOTTOM, AudioAnalyzer.PATTERN_TOP, AudioAnalyzer.PATTERN_LEFT_RIGHT, AudioAnalyzer.PATTERN_TOP};
+        p.widePatterns = new int[]{
+                AudioAnalyzer.PATTERN_BOTTOM, AudioAnalyzer.PATTERN_TOP_BOTTOM, AudioAnalyzer.PATTERN_BOTTOM,
+                AudioAnalyzer.PATTERN_LEFT_RIGHT, AudioAnalyzer.PATTERN_LEFT, AudioAnalyzer.PATTERN_RIGHT,
+                AudioAnalyzer.PATTERN_LEFT_RIGHT, AudioAnalyzer.PATTERN_TOP_LEFT, AudioAnalyzer.PATTERN_TOP_RIGHT,
+                AudioAnalyzer.PATTERN_TOP, AudioAnalyzer.PATTERN_TOP_BOTTOM, AudioAnalyzer.PATTERN_ALL
+        };
         p.narrowThresholds = new float[]{0.15f, 0.15f, 0.15f, 0.15f};
         p.wideThresholds = new float[]{0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f};
+        p.narrowEnabled = new boolean[]{true, true, true, true};
+        p.wideEnabled = new boolean[]{true, true, true, true, true, true, true, true, true, true, true, true};
+        p.narrowColorCycle = new boolean[]{false, false, false, false};
+        p.wideColorCycle = new boolean[12];
         return p;
     }
 
     public static AudioPreset createEdmClubPreset() {
-        AudioPreset p = new AudioPreset(PRESET_EDM_CLUB_ID, "EDM / Club", true);
+        AudioPreset p = new AudioPreset(PRESET_EDM_CLUB_ID, "EDM / Club", true, DeviceModelManager.MODEL_GT_5);
         p.fftSize = 1024;
         p.useTukeyWindow = false;
         p.triggerMode = AudioAnalyzer.MODE_CUSTOM_PATTERN;
@@ -132,13 +230,40 @@ public class AudioPresetManager {
         p.quickTriggerPreset = AudioAnalyzer.QUICK_PRESET_CLUB_DRIVE;
         p.sensitivity = 1.25f;
         p.decayMs = 90;
+        p.diagramIntervalMs = 8;
+        p.spectrumVisualGain = 1.45f;
+        p.enableBandThreshold = true;
+        p.enableBluetoothDelay = false;
+        p.bluetoothDelayMs = 150;
         p.enableOnset = true;
         p.enableLoudnessGate = false;
+        p.loudnessGateThreshold = 0.15f;
+        p.enableCentroid = false;
+        p.centroidMode = 0;
+        p.enableMinHoldTime = true;
+        p.minHoldTimeMs = 30;
+        p.enableMaxHoldTime = true;
+        p.maxHoldTimeMs = 240;
+        p.enableFInterp = false;
+        p.fInterpSpeed = 15.0f;
+        p.enableRandomVariation = true;
+        p.randomVariationDepth = 0.10f;
+        p.enableLimiter = true;
         p.narrowGains = new float[]{1.2f, 1.3f, 1.3f, 1.4f};
         p.wideGains = new float[]{1.2f, 1.3f, 1.3f, 1.2f, 1.2f, 1.3f, 1.4f, 1.3f, 1.2f, 1.1f, 1.1f, 1.1f};
         p.narrowPatterns = new int[]{AudioAnalyzer.PATTERN_BOTTOM, AudioAnalyzer.PATTERN_LEFT_RIGHT, AudioAnalyzer.PATTERN_TOP_BOTTOM, AudioAnalyzer.PATTERN_ALL};
+        p.widePatterns = new int[]{
+                AudioAnalyzer.PATTERN_BOTTOM, AudioAnalyzer.PATTERN_TOP_BOTTOM, AudioAnalyzer.PATTERN_BOTTOM,
+                AudioAnalyzer.PATTERN_LEFT_RIGHT, AudioAnalyzer.PATTERN_LEFT, AudioAnalyzer.PATTERN_RIGHT,
+                AudioAnalyzer.PATTERN_LEFT_RIGHT, AudioAnalyzer.PATTERN_TOP_LEFT, AudioAnalyzer.PATTERN_TOP_RIGHT,
+                AudioAnalyzer.PATTERN_TOP, AudioAnalyzer.PATTERN_TOP_BOTTOM, AudioAnalyzer.PATTERN_ALL
+        };
         p.narrowThresholds = new float[]{0.15f, 0.15f, 0.15f, 0.15f};
         p.wideThresholds = new float[]{0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f};
+        p.narrowEnabled = new boolean[]{true, true, true, true};
+        p.wideEnabled = new boolean[]{true, true, true, true, true, true, true, true, true, true, true, true};
+        p.narrowColorCycle = new boolean[]{false, true, false, true};
+        p.wideColorCycle = new boolean[]{false, false, false, false, true, false, true, false, true, false, true, false};
         return p;
     }
 
@@ -150,14 +275,42 @@ public class AudioPresetManager {
         p.patternIndex = AudioAnalyzer.PATTERN_ALL;
         p.spectrumMode = AudioAnalyzer.SPECTRUM_MODE_NARROW;
         p.studioAnalysisMode = AudioAnalyzer.STUDIO_MODE_FAST;
+        p.quickTriggerPreset = 0;
         p.sensitivity = 1.35f;
         p.decayMs = 65;
+        p.diagramIntervalMs = 10;
+        p.spectrumVisualGain = 1.40f;
+        p.enableBandThreshold = true;
+        p.enableBluetoothDelay = false;
+        p.bluetoothDelayMs = 150;
         p.enableOnset = true;
         p.enableLoudnessGate = false;
+        p.loudnessGateThreshold = 0.15f;
+        p.enableCentroid = false;
+        p.centroidMode = 0;
+        p.enableMinHoldTime = true;
+        p.minHoldTimeMs = 35;
+        p.enableMaxHoldTime = true;
+        p.maxHoldTimeMs = 220;
+        p.enableFInterp = false;
+        p.fInterpSpeed = 12.0f;
+        p.enableRandomVariation = false;
+        p.randomVariationDepth = 0.15f;
+        p.enableLimiter = false;
         p.narrowGains = new float[]{1.3f, 1.4f, 1.2f, 1.0f};
+        p.wideGains = new float[]{1.2f, 1.3f, 1.3f, 1.2f, 1.2f, 1.1f, 1.1f, 1.0f, 1.0f, 0.9f, 0.9f, 0.9f};
         p.narrowThresholds = new float[]{0.14f, 0.14f, 0.12f, 0.15f};
+        p.wideThresholds = new float[]{0.14f, 0.14f, 0.14f, 0.12f, 0.12f, 0.12f, 0.12f, 0.15f, 0.15f, 0.15f, 0.15f, 0.15f};
         p.narrowPatterns = new int[]{AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_COLOR_CYCLE, AudioAnalyzer.PATTERN_OFF};
+        p.widePatterns = new int[]{
+                AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_ALL,
+                AudioAnalyzer.PATTERN_COLOR_CYCLE, AudioAnalyzer.PATTERN_COLOR_CYCLE, AudioAnalyzer.PATTERN_OFF, AudioAnalyzer.PATTERN_OFF,
+                AudioAnalyzer.PATTERN_OFF, AudioAnalyzer.PATTERN_OFF, AudioAnalyzer.PATTERN_OFF, AudioAnalyzer.PATTERN_OFF
+        };
         p.narrowEnabled = new boolean[]{true, true, true, false};
+        p.wideEnabled = new boolean[]{true, true, true, true, true, true, false, false, false, false, false, false};
+        p.narrowColorCycle = new boolean[]{false, false, true, false};
+        p.wideColorCycle = new boolean[]{false, false, false, false, true, true, false, false, false, false, false, false};
         return p;
     }
 
@@ -169,14 +322,42 @@ public class AudioPresetManager {
         p.patternIndex = AudioAnalyzer.PATTERN_ALL;
         p.spectrumMode = AudioAnalyzer.SPECTRUM_MODE_NARROW;
         p.studioAnalysisMode = AudioAnalyzer.STUDIO_MODE_FAST;
+        p.quickTriggerPreset = 0;
         p.sensitivity = 1.40f;
         p.decayMs = 55;
+        p.diagramIntervalMs = 10;
+        p.spectrumVisualGain = 1.40f;
+        p.enableBandThreshold = true;
+        p.enableBluetoothDelay = false;
+        p.bluetoothDelayMs = 150;
         p.enableOnset = true;
         p.enableLoudnessGate = false;
+        p.loudnessGateThreshold = 0.15f;
+        p.enableCentroid = false;
+        p.centroidMode = 0;
+        p.enableMinHoldTime = true;
+        p.minHoldTimeMs = 30;
+        p.enableMaxHoldTime = true;
+        p.maxHoldTimeMs = 200;
+        p.enableFInterp = false;
+        p.fInterpSpeed = 14.0f;
+        p.enableRandomVariation = false;
+        p.randomVariationDepth = 0.15f;
+        p.enableLimiter = false;
         p.narrowGains = new float[]{1.2f, 1.3f, 1.2f, 1.4f};
+        p.wideGains = new float[]{1.2f, 1.3f, 1.2f, 1.1f, 1.1f, 1.0f, 1.0f, 1.1f, 1.2f, 1.4f, 1.3f, 1.2f};
         p.narrowThresholds = new float[]{0.14f, 0.14f, 0.13f, 0.10f};
+        p.wideThresholds = new float[]{0.14f, 0.14f, 0.14f, 0.13f, 0.13f, 0.12f, 0.12f, 0.11f, 0.10f, 0.10f, 0.10f, 0.12f};
         p.narrowPatterns = new int[]{AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_COLOR_CYCLE};
+        p.widePatterns = new int[]{
+                AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_ALL,
+                AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_COLOR_CYCLE,
+                AudioAnalyzer.PATTERN_COLOR_CYCLE, AudioAnalyzer.PATTERN_COLOR_CYCLE, AudioAnalyzer.PATTERN_COLOR_CYCLE, AudioAnalyzer.PATTERN_COLOR_CYCLE
+        };
         p.narrowEnabled = new boolean[]{true, true, true, true};
+        p.wideEnabled = new boolean[]{true, true, true, true, true, true, true, true, true, true, true, true};
+        p.narrowColorCycle = new boolean[]{false, false, false, true};
+        p.wideColorCycle = new boolean[]{false, false, false, false, false, false, false, true, true, true, true, true};
         return p;
     }
 
@@ -188,20 +369,42 @@ public class AudioPresetManager {
         p.patternIndex = AudioAnalyzer.PATTERN_ALL;
         p.spectrumMode = AudioAnalyzer.SPECTRUM_MODE_WIDE;
         p.studioAnalysisMode = AudioAnalyzer.STUDIO_MODE_DEEP;
+        p.quickTriggerPreset = 0;
         p.sensitivity = 1.45f;
         p.decayMs = 70;
+        p.diagramIntervalMs = 8;
+        p.spectrumVisualGain = 1.50f;
+        p.enableBandThreshold = true;
+        p.enableBluetoothDelay = false;
+        p.bluetoothDelayMs = 150;
         p.enableOnset = true;
         p.enableLimiter = true;
         p.enableLoudnessGate = true;
         p.loudnessGateThreshold = 0.07f;
+        p.enableCentroid = false;
+        p.centroidMode = 0;
+        p.enableMinHoldTime = true;
+        p.minHoldTimeMs = 30;
+        p.enableMaxHoldTime = true;
+        p.maxHoldTimeMs = 220;
+        p.enableFInterp = false;
+        p.fInterpSpeed = 15.0f;
+        p.enableRandomVariation = true;
+        p.randomVariationDepth = 0.10f;
+        p.narrowGains = new float[]{1.4f, 1.4f, 1.3f, 1.2f};
         p.wideGains = new float[]{1.4f, 1.4f, 1.3f, 1.3f, 1.2f, 1.2f, 1.1f, 1.1f, 1.1f, 1.0f, 1.0f, 1.0f};
+        p.narrowThresholds = new float[]{0.11f, 0.11f, 0.12f, 0.13f};
         p.wideThresholds = new float[]{0.11f, 0.11f, 0.11f, 0.12f, 0.12f, 0.12f, 0.12f, 0.12f, 0.13f, 0.13f, 0.13f, 0.13f};
+        p.narrowPatterns = new int[]{AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_FLASH_AND_COLOR_CYCLE, AudioAnalyzer.PATTERN_COLOR_CYCLE};
         p.widePatterns = new int[]{
                 AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_FLASH_AND_COLOR_CYCLE,
                 AudioAnalyzer.PATTERN_FLASH_AND_COLOR_CYCLE, AudioAnalyzer.PATTERN_FLASH_AND_COLOR_CYCLE, AudioAnalyzer.PATTERN_FLASH_AND_COLOR_CYCLE, AudioAnalyzer.PATTERN_COLOR_CYCLE,
                 AudioAnalyzer.PATTERN_COLOR_CYCLE, AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_ALL
         };
+        p.narrowEnabled = new boolean[]{true, true, true, true};
         p.wideEnabled = new boolean[]{true, true, true, true, true, true, true, true, true, true, true, true};
+        p.narrowColorCycle = new boolean[]{false, false, true, true};
+        p.wideColorCycle = new boolean[]{false, false, false, true, true, true, true, true, true, false, false, false};
         return p;
     }
 
@@ -213,14 +416,42 @@ public class AudioPresetManager {
         p.patternIndex = AudioAnalyzer.PATTERN_ALL;
         p.spectrumMode = AudioAnalyzer.SPECTRUM_MODE_NARROW;
         p.studioAnalysisMode = AudioAnalyzer.STUDIO_MODE_FAST;
+        p.quickTriggerPreset = 0;
         p.sensitivity = 1.50f;
         p.decayMs = 50;
+        p.diagramIntervalMs = 6;
+        p.spectrumVisualGain = 1.60f;
+        p.enableBandThreshold = true;
+        p.enableBluetoothDelay = false;
+        p.bluetoothDelayMs = 150;
         p.enableOnset = true;
         p.enableLoudnessGate = false;
+        p.loudnessGateThreshold = 0.15f;
+        p.enableCentroid = false;
+        p.centroidMode = 0;
+        p.enableMinHoldTime = true;
+        p.minHoldTimeMs = 25;
+        p.enableMaxHoldTime = true;
+        p.maxHoldTimeMs = 180;
+        p.enableFInterp = false;
+        p.fInterpSpeed = 16.0f;
+        p.enableRandomVariation = true;
+        p.randomVariationDepth = 0.20f;
+        p.enableLimiter = true;
         p.narrowGains = new float[]{1.3f, 1.4f, 1.4f, 1.2f};
+        p.wideGains = new float[]{1.3f, 1.4f, 1.4f, 1.3f, 1.3f, 1.2f, 1.2f, 1.3f, 1.4f, 1.3f, 1.2f, 1.1f};
         p.narrowThresholds = new float[]{0.11f, 0.11f, 0.10f, 0.12f};
+        p.wideThresholds = new float[]{0.11f, 0.11f, 0.11f, 0.10f, 0.10f, 0.10f, 0.11f, 0.11f, 0.11f, 0.12f, 0.12f, 0.12f};
         p.narrowPatterns = new int[]{AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_FLASH_AND_COLOR_CYCLE, AudioAnalyzer.PATTERN_COLOR_CYCLE};
+        p.widePatterns = new int[]{
+                AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_FLASH_AND_COLOR_CYCLE, AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_FLASH_AND_COLOR_CYCLE,
+                AudioAnalyzer.PATTERN_COLOR_CYCLE, AudioAnalyzer.PATTERN_FLASH_AND_COLOR_CYCLE, AudioAnalyzer.PATTERN_COLOR_CYCLE, AudioAnalyzer.PATTERN_FLASH_AND_COLOR_CYCLE,
+                AudioAnalyzer.PATTERN_COLOR_CYCLE, AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_FLASH_AND_COLOR_CYCLE, AudioAnalyzer.PATTERN_ALL
+        };
         p.narrowEnabled = new boolean[]{true, true, true, true};
+        p.wideEnabled = new boolean[]{true, true, true, true, true, true, true, true, true, true, true, true};
+        p.narrowColorCycle = new boolean[]{false, true, true, true};
+        p.wideColorCycle = new boolean[]{false, true, false, true, true, true, true, true, true, false, true, false};
         return p;
     }
 
@@ -232,15 +463,42 @@ public class AudioPresetManager {
         p.patternIndex = AudioAnalyzer.PATTERN_ALL;
         p.spectrumMode = AudioAnalyzer.SPECTRUM_MODE_NARROW;
         p.studioAnalysisMode = AudioAnalyzer.STUDIO_MODE_FAST;
+        p.quickTriggerPreset = 0;
         p.sensitivity = 1.20f;
         p.decayMs = 110;
+        p.diagramIntervalMs = 12;
+        p.spectrumVisualGain = 1.35f;
+        p.enableBandThreshold = true;
+        p.enableBluetoothDelay = false;
+        p.bluetoothDelayMs = 150;
         p.enableOnset = true;
         p.enableLoudnessGate = true;
         p.loudnessGateThreshold = 0.12f;
+        p.enableCentroid = false;
+        p.centroidMode = 0;
+        p.enableMinHoldTime = true;
+        p.minHoldTimeMs = 45;
+        p.enableMaxHoldTime = true;
+        p.maxHoldTimeMs = 280;
+        p.enableFInterp = true;
+        p.fInterpSpeed = 10.0f;
+        p.enableRandomVariation = false;
+        p.randomVariationDepth = 0.15f;
+        p.enableLimiter = true;
         p.narrowGains = new float[]{1.5f, 1.6f, 1.0f, 1.0f};
+        p.wideGains = new float[]{1.6f, 1.6f, 1.4f, 1.2f, 1.0f, 0.9f, 0.8f, 0.8f, 0.8f, 0.7f, 0.7f, 0.7f};
         p.narrowThresholds = new float[]{0.18f, 0.18f, 0.20f, 0.20f};
+        p.wideThresholds = new float[]{0.18f, 0.18f, 0.18f, 0.16f, 0.15f, 0.15f, 0.15f, 0.15f, 0.15f, 0.15f, 0.15f, 0.15f};
         p.narrowPatterns = new int[]{AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_OFF, AudioAnalyzer.PATTERN_OFF};
+        p.widePatterns = new int[]{
+                AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_ALL, AudioAnalyzer.PATTERN_OFF,
+                AudioAnalyzer.PATTERN_OFF, AudioAnalyzer.PATTERN_OFF, AudioAnalyzer.PATTERN_OFF, AudioAnalyzer.PATTERN_OFF,
+                AudioAnalyzer.PATTERN_OFF, AudioAnalyzer.PATTERN_OFF, AudioAnalyzer.PATTERN_OFF, AudioAnalyzer.PATTERN_OFF
+        };
         p.narrowEnabled = new boolean[]{true, true, false, false};
+        p.wideEnabled = new boolean[]{true, true, true, false, false, false, false, false, false, false, false, false};
+        p.narrowColorCycle = new boolean[]{false, false, false, false};
+        p.wideColorCycle = new boolean[12];
         return p;
     }
 

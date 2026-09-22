@@ -1413,6 +1413,11 @@ public class AudioAnalyzer {
         mEnableRandomVariation = preset.enableRandomVariation;
         mRandomVariationDepth = preset.randomVariationDepth;
         mEnableLimiter = preset.enableLimiter;
+        mDiagramIntervalMs = preset.diagramIntervalMs;
+        mSpectrumVisualGain = preset.spectrumVisualGain;
+        mEnableBandThreshold = preset.enableBandThreshold;
+        mEnableBluetoothDelay = preset.enableBluetoothDelay;
+        mBluetoothDelayMs = preset.bluetoothDelayMs;
 
         if (preset.narrowGains != null) {
             for (int i = 0; i < Math.min(NARROW_BANDS_COUNT, preset.narrowGains.length); i++) {
@@ -1454,13 +1459,24 @@ public class AudioAnalyzer {
                 mWideEnabled[i] = preset.wideEnabled[i];
             }
         }
+        if (preset.narrowColorCycle != null) {
+            for (int i = 0; i < Math.min(NARROW_BANDS_COUNT, preset.narrowColorCycle.length); i++) {
+                mNarrowColorCycle[i] = preset.narrowColorCycle[i];
+            }
+        }
+        if (preset.wideColorCycle != null) {
+            for (int i = 0; i < Math.min(WIDE_BANDS_COUNT, preset.wideColorCycle.length); i++) {
+                mWideColorCycle[i] = preset.wideColorCycle[i];
+            }
+        }
 
         saveSettings(context);
         AudioPresetManager.setActivePresetId(context, preset.id);
     }
 
     public AudioPreset exportCurrentAsPreset(String id, String name) {
-        AudioPreset p = new AudioPreset(id, name, false);
+        int model = (mContext != null) ? DeviceModelManager.getDeviceModel(mContext) : DeviceModelManager.MODEL_GT_5;
+        AudioPreset p = new AudioPreset(id, name, false, model);
         p.fftSize = mFftSize;
         p.useTukeyWindow = mUseTukeyWindow;
         p.triggerMode = mTriggerMode;
@@ -1484,6 +1500,11 @@ public class AudioAnalyzer {
         p.enableRandomVariation = mEnableRandomVariation;
         p.randomVariationDepth = mRandomVariationDepth;
         p.enableLimiter = mEnableLimiter;
+        p.diagramIntervalMs = mDiagramIntervalMs;
+        p.spectrumVisualGain = mSpectrumVisualGain;
+        p.enableBandThreshold = mEnableBandThreshold;
+        p.enableBluetoothDelay = mEnableBluetoothDelay;
+        p.bluetoothDelayMs = mBluetoothDelayMs;
         p.narrowGains = mNarrowGains.clone();
         p.wideGains = mWideGains.clone();
         p.narrowPatterns = mNarrowPatterns.clone();
@@ -1492,6 +1513,8 @@ public class AudioAnalyzer {
         p.wideThresholds = mWideThresholds.clone();
         p.narrowEnabled = mNarrowEnabled.clone();
         p.wideEnabled = mWideEnabled.clone();
+        p.narrowColorCycle = mNarrowColorCycle.clone();
+        p.wideColorCycle = mWideColorCycle.clone();
         return p;
     }
 

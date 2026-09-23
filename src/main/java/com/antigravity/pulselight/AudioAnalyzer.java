@@ -99,7 +99,7 @@ public class AudioAnalyzer {
 
     // Hold Time Constraints
     private boolean mEnableMinHoldTime = false;
-    private int mMinHoldTimeMs = 40;
+    private int mMinHoldTimeMs = 80;
     private boolean mEnableMaxHoldTime = false;
     private int mMaxHoldTimeMs = 250;
     private long mLastBeatTime = 0;
@@ -384,7 +384,7 @@ public class AudioAnalyzer {
         mCentroidMode = sp.getInt(KEY_CENTROID_MODE, 0);
 
         mEnableMinHoldTime = sp.getBoolean(KEY_ENABLE_MIN_HOLD, false);
-        mMinHoldTimeMs = sp.getInt(KEY_MIN_HOLD_MS, 40);
+        mMinHoldTimeMs = sp.getInt(KEY_MIN_HOLD_MS, 80);
         mEnableMaxHoldTime = sp.getBoolean(KEY_ENABLE_MAX_HOLD, false);
         mMaxHoldTimeMs = sp.getInt(KEY_MAX_HOLD_MS, 250);
         mEnableFInterp = sp.getBoolean(KEY_ENABLE_FINTERP, false);
@@ -440,7 +440,7 @@ public class AudioAnalyzer {
         mCentroidMode = 0;
 
         mEnableMinHoldTime = false;
-        mMinHoldTimeMs = 40;
+        mMinHoldTimeMs = 80;
         mEnableMaxHoldTime = false;
         mMaxHoldTimeMs = 250;
         java.util.Arrays.fill(mSegmentOnTime, 0);
@@ -993,11 +993,11 @@ public class AudioAnalyzer {
             mEnableMinHoldTime = true;
             if (mCalibIntervalsCount >= 3) {
                 float avgInterval = (float) mCalibIntervalSumMs / mCalibIntervalsCount;
-                int calculatedMinHold = Math.round(avgInterval * 0.095f);
-                mMinHoldTimeMs = Math.max(32, Math.min(65, calculatedMinHold));
+                int calculatedMinHold = Math.round(avgInterval * 0.14f);
+                mMinHoldTimeMs = Math.max(75, Math.min(95, calculatedMinHold));
             } else {
-                mMinHoldTimeMs = Math.round(40 + dynamicContrast * 15);
-                mMinHoldTimeMs = Math.max(35, Math.min(60, mMinHoldTimeMs));
+                mMinHoldTimeMs = Math.round(75 + dynamicContrast * 20);
+                mMinHoldTimeMs = Math.max(75, Math.min(95, mMinHoldTimeMs));
             }
         }
 
@@ -1126,11 +1126,11 @@ public class AudioAnalyzer {
             mEnableMinHoldTime = true;
             if (mCalibIntervalsCount >= 3) {
                 float avgInterval = (float) mCalibIntervalSumMs / mCalibIntervalsCount;
-                int calculatedMinHold = Math.round(avgInterval * 0.080f);
-                mMinHoldTimeMs = Math.max(28, Math.min(52, calculatedMinHold));
+                int calculatedMinHold = Math.round(avgInterval * 0.13f);
+                mMinHoldTimeMs = Math.max(75, Math.min(95, calculatedMinHold));
             } else {
-                mMinHoldTimeMs = Math.round(35 + dynamicContrast * 12);
-                mMinHoldTimeMs = Math.max(30, Math.min(50, mMinHoldTimeMs));
+                mMinHoldTimeMs = Math.round(75 + dynamicContrast * 18);
+                mMinHoldTimeMs = Math.max(75, Math.min(95, mMinHoldTimeMs));
             }
         }
 
@@ -1349,11 +1349,11 @@ public class AudioAnalyzer {
         mEnableMinHoldTime = true;
         if (mCalibIntervalsCount >= 3) {
             float avgInterval = (float) mCalibIntervalSumMs / mCalibIntervalsCount;
-            mMinHoldTimeMs = Math.max(45, Math.min(65, Math.round(avgInterval * 0.095f)));
-            mDecayMs = Math.max(55, Math.min(85, Math.round(avgInterval * 0.18f)));
+            mMinHoldTimeMs = Math.max(75, Math.min(95, Math.round(avgInterval * 0.14f)));
+            mDecayMs = Math.max(65, Math.min(95, Math.round(avgInterval * 0.18f)));
         } else {
-            mMinHoldTimeMs = 50;
-            mDecayMs = 70;
+            mMinHoldTimeMs = 85;
+            mDecayMs = 75;
         }
 
         if (mContext != null) {

@@ -51,7 +51,7 @@ public class AudioPresetManager {
         p.enableCentroid = false;
         p.centroidMode = 0;
         p.enableMinHoldTime = true;
-        p.minHoldTimeMs = 35;
+        p.minHoldTimeMs = 85;
         p.enableMaxHoldTime = true;
         p.maxHoldTimeMs = 260;
         p.enableFInterp = false;
@@ -98,7 +98,7 @@ public class AudioPresetManager {
         p.enableCentroid = false;
         p.centroidMode = 0;
         p.enableMinHoldTime = true;
-        p.minHoldTimeMs = 40;
+        p.minHoldTimeMs = 80;
         p.enableMaxHoldTime = false;
         p.maxHoldTimeMs = 250;
         p.enableFInterp = false;
@@ -145,7 +145,7 @@ public class AudioPresetManager {
         p.enableCentroid = false;
         p.centroidMode = 0;
         p.enableMinHoldTime = true;
-        p.minHoldTimeMs = 50;
+        p.minHoldTimeMs = 90;
         p.enableMaxHoldTime = true;
         p.maxHoldTimeMs = 300;
         p.enableFInterp = true;
@@ -192,7 +192,7 @@ public class AudioPresetManager {
         p.enableCentroid = false;
         p.centroidMode = 0;
         p.enableMinHoldTime = true;
-        p.minHoldTimeMs = 35;
+        p.minHoldTimeMs = 80;
         p.enableMaxHoldTime = true;
         p.maxHoldTimeMs = 220;
         p.enableFInterp = false;
@@ -239,7 +239,7 @@ public class AudioPresetManager {
         p.enableCentroid = false;
         p.centroidMode = 0;
         p.enableMinHoldTime = true;
-        p.minHoldTimeMs = 30;
+        p.minHoldTimeMs = 75;
         p.enableMaxHoldTime = true;
         p.maxHoldTimeMs = 240;
         p.enableFInterp = false;
@@ -286,7 +286,7 @@ public class AudioPresetManager {
         p.enableCentroid = false;
         p.centroidMode = 0;
         p.enableMinHoldTime = true;
-        p.minHoldTimeMs = 35;
+        p.minHoldTimeMs = 85;
         p.enableMaxHoldTime = true;
         p.maxHoldTimeMs = 220;
         p.enableFInterp = false;
@@ -332,7 +332,7 @@ public class AudioPresetManager {
         p.enableCentroid = false;
         p.centroidMode = 0;
         p.enableMinHoldTime = true;
-        p.minHoldTimeMs = 30;
+        p.minHoldTimeMs = 78;
         p.enableMaxHoldTime = true;
         p.maxHoldTimeMs = 200;
         p.enableFInterp = false;
@@ -379,7 +379,7 @@ public class AudioPresetManager {
         p.enableCentroid = false;
         p.centroidMode = 0;
         p.enableMinHoldTime = true;
-        p.minHoldTimeMs = 30;
+        p.minHoldTimeMs = 75;
         p.enableMaxHoldTime = true;
         p.maxHoldTimeMs = 220;
         p.enableFInterp = false;
@@ -424,7 +424,7 @@ public class AudioPresetManager {
         p.enableCentroid = false;
         p.centroidMode = 0;
         p.enableMinHoldTime = true;
-        p.minHoldTimeMs = 25;
+        p.minHoldTimeMs = 75;
         p.enableMaxHoldTime = true;
         p.maxHoldTimeMs = 180;
         p.enableFInterp = false;
@@ -470,7 +470,7 @@ public class AudioPresetManager {
         p.enableCentroid = false;
         p.centroidMode = 0;
         p.enableMinHoldTime = true;
-        p.minHoldTimeMs = 45;
+        p.minHoldTimeMs = 90;
         p.enableMaxHoldTime = true;
         p.maxHoldTimeMs = 280;
         p.enableFInterp = true;

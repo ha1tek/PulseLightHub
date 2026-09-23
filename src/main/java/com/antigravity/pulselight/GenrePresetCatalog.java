@@ -926,7 +926,7 @@ public class GenrePresetCatalog {
         p.enableLoudnessGate = (gateThresh > 0.001f);
         p.loudnessGateThreshold = gateThresh;
         p.enableMinHoldTime = true;
-        p.minHoldTimeMs = minHoldMs;
+        p.minHoldTimeMs = mapToMinHoldRange(minHoldMs);
         p.enableMaxHoldTime = true;
         p.maxHoldTimeMs = maxHoldMs;
         p.enableFInterp = fInterp;
@@ -1048,7 +1048,7 @@ public class GenrePresetCatalog {
         p.enableLoudnessGate = gate;
         p.loudnessGateThreshold = gateThresh;
         p.enableMinHoldTime = true;
-        p.minHoldTimeMs = minHoldMs;
+        p.minHoldTimeMs = mapToMinHoldRange(minHoldMs);
         p.enableMaxHoldTime = true;
         p.maxHoldTimeMs = maxHoldMs;
         p.enableFInterp = fInterp;
@@ -1467,7 +1467,7 @@ public class GenrePresetCatalog {
         p.enableLoudnessGate = (gateThresh > 0.001f);
         p.loudnessGateThreshold = gateThresh;
         p.enableMinHoldTime = true;
-        p.minHoldTimeMs = minHoldMs;
+        p.minHoldTimeMs = mapToMinHoldRange(minHoldMs);
         p.enableMaxHoldTime = true;
         p.maxHoldTimeMs = maxHoldMs;
         p.enableFInterp = fInterp;
@@ -1502,4 +1502,14 @@ public class GenrePresetCatalog {
         list.add(p);
     }
 
+    private static int mapToMinHoldRange(int originalMs) {
+        if (originalMs >= 75 && originalMs <= 95) {
+            return originalMs;
+        }
+        if (originalMs < 75) {
+            float norm = Math.max(0f, Math.min(1f, (originalMs - 20f) / 35f));
+            return Math.round(75f + norm * 20f);
+        }
+        return 95;
+    }
 }

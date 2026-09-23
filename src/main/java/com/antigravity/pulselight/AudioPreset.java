@@ -23,7 +23,7 @@ public class AudioPreset {
     public boolean enableCentroid = false;
     public int centroidMode = 0;
     public boolean enableMinHoldTime = false;
-    public int minHoldTimeMs = 40;
+    public int minHoldTimeMs = 80;
     public boolean enableMaxHoldTime = false;
     public int maxHoldTimeMs = 250;
     public boolean enableFInterp = false;
@@ -210,7 +210,7 @@ public class AudioPreset {
             p.enableCentroid = obj.optBoolean("enableCentroid", false);
             p.centroidMode = obj.optInt("centroidMode", 0);
             p.enableMinHoldTime = obj.optBoolean("enableMinHoldTime", false);
-            p.minHoldTimeMs = obj.optInt("minHoldTimeMs", 40);
+            p.minHoldTimeMs = obj.optInt("minHoldTimeMs", 80);
             p.enableMaxHoldTime = obj.optBoolean("enableMaxHoldTime", false);
             p.maxHoldTimeMs = obj.optInt("maxHoldTimeMs", 250);
             p.enableFInterp = obj.optBoolean("enableFInterp", false);

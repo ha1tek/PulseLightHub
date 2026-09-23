@@ -6,7 +6,7 @@
 [![Network](https://img.shields.io/badge/Network-100%25_Offline-00E5FF.svg?style=flat-square)](https://github.com/ha1tek/PulseLightHub)
 [![DSP](https://img.shields.io/badge/Audio_DSP-aubio_HFC_+_RMS-blueviolet.svg?style=flat-square)](https://github.com/ha1tek/PulseLightHub)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
-[![Release](https://img.shields.io/badge/Release-v1.4-brightgreen.svg?style=flat-square)](https://github.com/ha1tek/PulseLightHub/releases/tag/v1.4)
+[![Release](https://img.shields.io/badge/Release-v1.5.1-brightgreen.svg?style=flat-square)](https://github.com/ha1tek/PulseLightHub/releases/tag/v1.5.1)
 
 Pulse Light Hub — высокопроизводительный автономный музыкальный визуализатор для RGB подсветки Awakening Halo смартфона Realme GT 5. Приложение анализирует системный звук или сигнал с микрофона в реальном времени с нулевой задержкой и управляет четырьмя сегментами глифа через прямой нативный интерфейс аппаратного контроллера.
 

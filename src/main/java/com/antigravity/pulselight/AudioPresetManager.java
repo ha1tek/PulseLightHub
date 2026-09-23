@@ -5,12 +5,15 @@ import android.content.SharedPreferences;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class AudioPresetManager {
 
     private static final String PREFS_NAME = "pulse_audio_presets";
     private static final String KEY_USER_PRESETS = "user_presets_json";
+    private static final String KEY_FAVORITE_PRESET_IDS = "favorite_preset_ids_json";
     private static final String KEY_ACTIVE_PRESET_ID = "active_preset_id";
     private static final String KEY_ACTIVE_PRESET_ID_GT5 = "active_preset_id_gt5";
     private static final String KEY_ACTIVE_PRESET_ID_NEO5 = "active_preset_id_neo5";
@@ -28,10 +31,9 @@ public class AudioPresetManager {
     public static final String PRESET_NEO5_MINIMAL_BASS_ID = "neo5_minimal_bass";
 
     public static AudioPreset createStudioProPreset() {
-        AudioPreset p = new AudioPreset(PRESET_STUDIO_PRO_ID, "Студийный Pro", true, DeviceModelManager.MODEL_GT_5);
+        AudioPreset p = new AudioPreset(PRESET_STUDIO_PRO_ID, "Студийный Pro", true, DeviceModelManager.MODEL_GT_5, "Базовые профили");
         p.fftSize = 4096;
         p.useTukeyWindow = true;
-        p.triggerMode = AudioAnalyzer.MODE_CUSTOM_PATTERN;
         p.patternIndex = AudioAnalyzer.PATTERN_ALL;
         p.spectrumMode = AudioAnalyzer.SPECTRUM_MODE_WIDE;
         p.studioAnalysisMode = AudioAnalyzer.STUDIO_MODE_DEEP;
@@ -76,10 +78,9 @@ public class AudioPresetManager {
     }
 
     public static AudioPreset createNothingPurePreset() {
-        AudioPreset p = new AudioPreset(PRESET_NOTHING_PURE_ID, "Nothing Phone Pure", true, DeviceModelManager.MODEL_GT_5);
+        AudioPreset p = new AudioPreset(PRESET_NOTHING_PURE_ID, "Nothing Phone Pure", true, DeviceModelManager.MODEL_GT_5, "Базовые профили");
         p.fftSize = 1024;
         p.useTukeyWindow = false;
-        p.triggerMode = AudioAnalyzer.MODE_CUSTOM_PATTERN;
         p.patternIndex = AudioAnalyzer.PATTERN_ALL;
         p.spectrumMode = AudioAnalyzer.SPECTRUM_MODE_NARROW;
         p.studioAnalysisMode = AudioAnalyzer.STUDIO_MODE_FAST;
@@ -124,10 +125,9 @@ public class AudioPresetManager {
     }
 
     public static AudioPreset createPhonk808Preset() {
-        AudioPreset p = new AudioPreset(PRESET_PHONK_808_ID, "Phonk / 808 Bass", true, DeviceModelManager.MODEL_GT_5);
+        AudioPreset p = new AudioPreset(PRESET_PHONK_808_ID, "Phonk / 808 Bass", true, DeviceModelManager.MODEL_GT_5, "Базовые профили");
         p.fftSize = 2048;
         p.useTukeyWindow = true;
-        p.triggerMode = AudioAnalyzer.MODE_CUSTOM_PATTERN;
         p.patternIndex = AudioAnalyzer.PATTERN_ALL;
         p.spectrumMode = AudioAnalyzer.SPECTRUM_MODE_WIDE;
         p.studioAnalysisMode = AudioAnalyzer.STUDIO_MODE_DEEP;
@@ -172,10 +172,9 @@ public class AudioPresetManager {
     }
 
     public static AudioPreset createRockDrumsPreset() {
-        AudioPreset p = new AudioPreset(PRESET_ROCK_DRUMS_ID, "Rock / Drums", true, DeviceModelManager.MODEL_GT_5);
+        AudioPreset p = new AudioPreset(PRESET_ROCK_DRUMS_ID, "Rock / Drums", true, DeviceModelManager.MODEL_GT_5, "Базовые профили");
         p.fftSize = 1024;
         p.useTukeyWindow = false;
-        p.triggerMode = AudioAnalyzer.MODE_CUSTOM_PATTERN;
         p.patternIndex = AudioAnalyzer.PATTERN_TOP_BOTTOM;
         p.spectrumMode = AudioAnalyzer.SPECTRUM_MODE_NARROW;
         p.studioAnalysisMode = AudioAnalyzer.STUDIO_MODE_FAST;
@@ -220,10 +219,9 @@ public class AudioPresetManager {
     }
 
     public static AudioPreset createEdmClubPreset() {
-        AudioPreset p = new AudioPreset(PRESET_EDM_CLUB_ID, "EDM / Club", true, DeviceModelManager.MODEL_GT_5);
+        AudioPreset p = new AudioPreset(PRESET_EDM_CLUB_ID, "EDM / Club", true, DeviceModelManager.MODEL_GT_5, "Базовые профили");
         p.fftSize = 1024;
         p.useTukeyWindow = false;
-        p.triggerMode = AudioAnalyzer.MODE_CUSTOM_PATTERN;
         p.patternIndex = AudioAnalyzer.PATTERN_ALL;
         p.spectrumMode = AudioAnalyzer.SPECTRUM_MODE_NARROW;
         p.studioAnalysisMode = AudioAnalyzer.STUDIO_MODE_FAST;
@@ -268,10 +266,9 @@ public class AudioPresetManager {
     }
 
     public static AudioPreset createNeo5BassSnarePreset() {
-        AudioPreset p = new AudioPreset(PRESET_NEO5_BASS_SNARE_ID, "Бас + Смена на Снейр", true, DeviceModelManager.MODEL_GT_NEO_5);
+        AudioPreset p = new AudioPreset(PRESET_NEO5_BASS_SNARE_ID, "Бас + Смена на Снейр", true, DeviceModelManager.MODEL_GT_NEO_5, "Базовые профили");
         p.fftSize = 1024;
         p.useTukeyWindow = false;
-        p.triggerMode = AudioAnalyzer.MODE_CUSTOM_PATTERN;
         p.patternIndex = AudioAnalyzer.PATTERN_ALL;
         p.spectrumMode = AudioAnalyzer.SPECTRUM_MODE_NARROW;
         p.studioAnalysisMode = AudioAnalyzer.STUDIO_MODE_FAST;
@@ -315,10 +312,9 @@ public class AudioPresetManager {
     }
 
     public static AudioPreset createNeo5BassHihatPreset() {
-        AudioPreset p = new AudioPreset(PRESET_NEO5_BASS_HIHAT_ID, "Бас + Смена на Хэты", true, DeviceModelManager.MODEL_GT_NEO_5);
+        AudioPreset p = new AudioPreset(PRESET_NEO5_BASS_HIHAT_ID, "Бас + Смена на Хэты", true, DeviceModelManager.MODEL_GT_NEO_5, "Базовые профили");
         p.fftSize = 1024;
         p.useTukeyWindow = false;
-        p.triggerMode = AudioAnalyzer.MODE_CUSTOM_PATTERN;
         p.patternIndex = AudioAnalyzer.PATTERN_ALL;
         p.spectrumMode = AudioAnalyzer.SPECTRUM_MODE_NARROW;
         p.studioAnalysisMode = AudioAnalyzer.STUDIO_MODE_FAST;
@@ -362,10 +358,9 @@ public class AudioPresetManager {
     }
 
     public static AudioPreset createNeo5FullDrivePreset() {
-        AudioPreset p = new AudioPreset(PRESET_NEO5_FULL_DRIVE_ID, "Полный драйв", true, DeviceModelManager.MODEL_GT_NEO_5);
+        AudioPreset p = new AudioPreset(PRESET_NEO5_FULL_DRIVE_ID, "Полный драйв", true, DeviceModelManager.MODEL_GT_NEO_5, "Базовые профили");
         p.fftSize = 2048;
         p.useTukeyWindow = true;
-        p.triggerMode = AudioAnalyzer.MODE_CUSTOM_PATTERN;
         p.patternIndex = AudioAnalyzer.PATTERN_ALL;
         p.spectrumMode = AudioAnalyzer.SPECTRUM_MODE_WIDE;
         p.studioAnalysisMode = AudioAnalyzer.STUDIO_MODE_DEEP;
@@ -409,10 +404,9 @@ public class AudioPresetManager {
     }
 
     public static AudioPreset createNeo5NeonChaosPreset() {
-        AudioPreset p = new AudioPreset(PRESET_NEO5_NEON_CHAOS_ID, "Неоновый хаос", true, DeviceModelManager.MODEL_GT_NEO_5);
+        AudioPreset p = new AudioPreset(PRESET_NEO5_NEON_CHAOS_ID, "Неоновый хаос", true, DeviceModelManager.MODEL_GT_NEO_5, "Базовые профили");
         p.fftSize = 1024;
         p.useTukeyWindow = false;
-        p.triggerMode = AudioAnalyzer.MODE_CUSTOM_PATTERN;
         p.patternIndex = AudioAnalyzer.PATTERN_ALL;
         p.spectrumMode = AudioAnalyzer.SPECTRUM_MODE_NARROW;
         p.studioAnalysisMode = AudioAnalyzer.STUDIO_MODE_FAST;
@@ -456,10 +450,9 @@ public class AudioPresetManager {
     }
 
     public static AudioPreset createNeo5MinimalBassPreset() {
-        AudioPreset p = new AudioPreset(PRESET_NEO5_MINIMAL_BASS_ID, "Минимал бас", true, DeviceModelManager.MODEL_GT_NEO_5);
+        AudioPreset p = new AudioPreset(PRESET_NEO5_MINIMAL_BASS_ID, "Минимал бас", true, DeviceModelManager.MODEL_GT_NEO_5, "Базовые профили");
         p.fftSize = 2048;
         p.useTukeyWindow = true;
-        p.triggerMode = AudioAnalyzer.MODE_CUSTOM_PATTERN;
         p.patternIndex = AudioAnalyzer.PATTERN_ALL;
         p.spectrumMode = AudioAnalyzer.SPECTRUM_MODE_NARROW;
         p.studioAnalysisMode = AudioAnalyzer.STUDIO_MODE_FAST;
@@ -502,12 +495,7 @@ public class AudioPresetManager {
         return p;
     }
 
-    public static List<AudioPreset> getAllPresets(Context context) {
-        int model = (context != null) ? DeviceModelManager.getDeviceModel(context) : DeviceModelManager.MODEL_GT_5;
-        return getAllPresets(context, model);
-    }
-
-    public static List<AudioPreset> getAllPresets(Context context, int deviceModel) {
+    public static List<AudioPreset> getBuiltInPresets(int deviceModel) {
         List<AudioPreset> list = new ArrayList<>();
         if (deviceModel == DeviceModelManager.MODEL_GT_NEO_5) {
             list.add(createNeo5BassSnarePreset());
@@ -522,25 +510,30 @@ public class AudioPresetManager {
             list.add(createRockDrumsPreset());
             list.add(createEdmClubPreset());
         }
+        list.addAll(GenrePresetCatalog.getPresetsForModel(deviceModel));
+        return list;
+    }
 
-        if (context != null) {
-            SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-            String json = prefs.getString(KEY_USER_PRESETS, null);
-            if (json != null && !json.isEmpty()) {
-                try {
-                    JSONArray arr = new JSONArray(json);
-                    for (int i = 0; i < arr.length(); i++) {
-                        JSONObject o = arr.getJSONObject(i);
-                        AudioPreset p = AudioPreset.fromJson(o);
-                        p.isBuiltIn = false;
-                        if (p.deviceModel == deviceModel) {
-                            list.add(p);
-                        }
-                    }
-                } catch (Throwable ignored) {}
+    public static List<AudioPreset> getAllPresets(Context context) {
+        int model = (context != null) ? DeviceModelManager.getDeviceModel(context) : DeviceModelManager.MODEL_GT_5;
+        return getAllPresets(context, model);
+    }
+
+    public static List<AudioPreset> getAllPresets(Context context, int deviceModel) {
+        List<AudioPreset> list = new ArrayList<>(getBuiltInPresets(deviceModel));
+        list.addAll(getUserPresets(context, deviceModel));
+        return list;
+    }
+
+    public static List<AudioPreset> getUserPresets(Context context, int deviceModel) {
+        List<AudioPreset> userList = new ArrayList<>();
+        if (context == null) return userList;
+        for (AudioPreset p : getUserPresets(context)) {
+            if (p.deviceModel == deviceModel) {
+                userList.add(p);
             }
         }
-        return list;
+        return userList;
     }
 
     public static AudioPreset getPresetById(Context context, String id) {
@@ -561,6 +554,9 @@ public class AudioPresetManager {
         if (PRESET_PHONK_808_ID.equals(id)) return createPhonk808Preset();
         if (PRESET_ROCK_DRUMS_ID.equals(id)) return createRockDrumsPreset();
         if (PRESET_EDM_CLUB_ID.equals(id)) return createEdmClubPreset();
+
+        AudioPreset catPreset = GenrePresetCatalog.getPresetById(id);
+        if (catPreset != null) return catPreset;
 
         for (AudioPreset p : getUserPresets(context)) {
             if (id.equals(p.id)) return p;
@@ -656,8 +652,11 @@ public class AudioPresetManager {
         int model = DeviceModelManager.getDeviceModel(context);
         if (id.startsWith("neo5_")) {
             model = DeviceModelManager.MODEL_GT_NEO_5;
-        } else if (id.equals(PRESET_STUDIO_PRO_ID) || id.equals(PRESET_NOTHING_PURE_ID) || id.equals(PRESET_PHONK_808_ID) || id.equals(PRESET_ROCK_DRUMS_ID) || id.equals(PRESET_EDM_CLUB_ID)) {
-            model = DeviceModelManager.MODEL_GT_5;
+        } else {
+            AudioPreset p = getPresetById(context, id);
+            if (p != null) {
+                model = p.deviceModel;
+            }
         }
         setActivePresetId(context, id, model);
     }
@@ -672,6 +671,54 @@ public class AudioPresetManager {
             ed.putString(KEY_ACTIVE_PRESET_ID, id);
         }
         ed.apply();
+    }
+
+    public static boolean isFavorite(Context context, String id) {
+        if (context == null || id == null) return false;
+        return getFavoritePresetIds(context).contains(id);
+    }
+
+    public static boolean toggleFavorite(Context context, String id) {
+        if (context == null || id == null) return false;
+        Set<String> set = new HashSet<>(getFavoritePresetIds(context));
+        boolean added;
+        if (set.contains(id)) {
+            set.remove(id);
+            added = false;
+        } else {
+            set.add(id);
+            added = true;
+        }
+        saveFavorites(context, set);
+        return added;
+    }
+
+    public static Set<String> getFavoritePresetIds(Context context) {
+        Set<String> set = new HashSet<>();
+        if (context == null) return set;
+        SharedPreferences sp = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        String json = sp.getString(KEY_FAVORITE_PRESET_IDS, null);
+        if (json != null && !json.isEmpty()) {
+            try {
+                JSONArray arr = new JSONArray(json);
+                for (int i = 0; i < arr.length(); i++) {
+                    set.add(arr.getString(i));
+                }
+            } catch (Throwable ignored) {}
+        }
+        return set;
+    }
+
+    private static void saveFavorites(Context context, Set<String> set) {
+        if (context == null) return;
+        JSONArray arr = new JSONArray();
+        if (set != null) {
+            for (String s : set) {
+                arr.put(s);
+            }
+        }
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit().putString(KEY_FAVORITE_PRESET_IDS, arr.toString()).apply();
     }
 
     public static String exportPresetToJson(AudioPreset preset) {

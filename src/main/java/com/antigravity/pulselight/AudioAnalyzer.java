@@ -7,19 +7,12 @@ import android.os.Looper;
 
 public class AudioAnalyzer {
 
-    // Trigger Modes
-    public static final int MODE_KICK_ONLY = 0;           // Nothing Phone Pure style
-    public static final int MODE_KICK_AND_SNARE = 1;      // Kick = Top/Bottom, Snare = Sides
-    public static final int MODE_FREQUENCY_SPLIT_4WAY = 2;// Sub=C, Kick=D, Snare=B, Hi-Hat=A
-    public static final int MODE_ENERGY_LEVELS = 3;       // Staged energy (1 to 4 LEDs)
-    public static final int MODE_CUSTOM_PATTERN = 4;      // Uses selected 11-pattern trigger
-
     // Spectrum Modes
     public static final int SPECTRUM_MODE_NARROW = 0;     // 4 bands (SUB, KICK, SNARE, TREBLE)
-    public static final int SPECTRUM_MODE_WIDE = 1;       // 10 bands (Sub -> Air)
+    public static final int SPECTRUM_MODE_WIDE = 1;       // 10/12 bands (Sub -> Air)
     public static final int SPECTRUM_MODE_BOTH = 2;       // Both narrow & wide simultaneously
 
-    // Studio Modes: Fast (4 bands + quick combinations) vs Deep (4 or 10 bands + individual per-band pattern configuration)
+    // Studio Modes: Fast (4 bands + quick combinations) vs Deep (12 bands + spatial styling)
     public static final int STUDIO_MODE_FAST = 0;
     public static final int STUDIO_MODE_DEEP = 1;
 
@@ -53,25 +46,10 @@ public class AudioAnalyzer {
     public static final int PATTERN_COLOR_CYCLE = 20;     // For GT Neo 5: Switches / cycles color on beat
     public static final int PATTERN_FLASH_AND_COLOR_CYCLE = 21; // For GT Neo 5: Flashes glyph and switches color on beat
 
-    // Presets
-    public static final int PRESET_NOTHING_PURE = 0;
-    public static final int PRESET_PHONK_808 = 1;
-    public static final int PRESET_ROCK_DRUMS = 2;
-    public static final int PRESET_EDM_CLUB = 3;
-    public static final int PRESET_CUSTOM = 4;
-
-    // Audio Source
-    public static final int SOURCE_AUTO = 0;
-    public static final int SOURCE_MIC = 1;
-    public static final int SOURCE_INTERNAL = 2;
-
     private static final String PREFS_NAME = "pulse_audio_engine";
-    private static final String KEY_PRESET = "preset_index";
-    private static final String KEY_TRIGGER_MODE = "trigger_mode";
     private static final String KEY_SENSITIVITY = "sensitivity_multiplier";
     private static final String KEY_DECAY_MS = "decay_ms";
     private static final String KEY_ENGINE_ENABLED = "engine_enabled";
-    private static final String KEY_AUDIO_SOURCE = "audio_source";
     private static final String KEY_SPECTRUM_MODE = "spectrum_mode";
     private static final String KEY_STUDIO_ANALYSIS_MODE = "studio_analysis_mode";
     private static final String KEY_QUICK_TRIGGER_PRESET = "quick_trigger_preset";
@@ -128,6 +106,12 @@ public class AudioAnalyzer {
     private boolean mIsBeatActive = false;
     private float mLastPeakIntensity = 0f;
 
+    // Hardware Segment Constraints (LED_A=1, LED_D=2, LED_C=4, LED_B=8)
+    private final long[] mSegmentOnTime = new long[4];
+    private final long[] mSegmentBurnStart = new long[4];
+    private final long[] mSegmentCooldownUntil = new long[4];
+    private final boolean[] mSegmentWasOn = new boolean[4];
+
     // Advanced Sound Filters from Audio Analysis Tools
     private boolean mEnableFInterp = false;
     private float mFInterpSpeed = 12.0f;
@@ -178,6 +162,33 @@ public class AudioAnalyzer {
     private final boolean[] mWideEnabled = new boolean[]{true, true, true, true, true, true, true, true, true, true, true, true};
     private final boolean[] mWideColorCycle = new boolean[WIDE_BANDS_COUNT];
 
+    // Стадии многоэтапной глубокой калибровки
+    public static final int CALIB_STAGE_IDLE = 0;
+    public static final int CALIB_STAGE_SILENCE = 1;     // Этап 1: Замер тишины и диапазона
+    public static final int CALIB_STAGE_PROFILING = 2;   // Этап 2: Профилирование и селекция полос
+    public static final int CALIB_STAGE_THRESHOLDS = 3;  // Этап 3: Настройка атак и антистробоскопа
+    public static final int CALIB_STAGE_SPATIAL = 4;     // Этап 4: Маршрутизация зон и паттернов
+
+    // Стили зонирования
+    public static final int STYLE_AUTO = 0;
+    // Стили Realme GT 5 (10 шаблонов)
+    public static final int GT5_STYLE_STAGE_CLASSIC = 1;      // Классическая сцена
+    public static final int GT5_STYLE_STEREO_PINGPONG = 2;    // Стерео-Пинг-Понг
+    public static final int GT5_STYLE_CROSS_PULSE = 3;        // Крест и Пульс
+    public static final int GT5_STYLE_DIAGONAL_VORTEX = 4;    // Диагональный вихрь
+    public static final int GT5_STYLE_BEAT_SNIPER = 5;        // Бит-Снайпер
+    public static final int GT5_STYLE_VERTICAL_ELEVATOR = 6;  // Вертикальный эквалайзер
+    public static final int GT5_STYLE_DROP_SLAM = 7;          // Дроп-Слэм
+    public static final int GT5_STYLE_PERIMETER_ORBIT = 8;    // Периметр-Орбита
+    public static final int GT5_STYLE_VOCAL_BREATHE = 9;      // Вокальное дыхание
+    public static final int GT5_STYLE_ANTIPHASE = 10;         // Антифазный взрыв
+
+    // Стили Realme GT Neo 5 (4 шаблона)
+    public static final int NEO5_STYLE_PULSE_CHROMATIC = 1;   // Пульс и Хроматика
+    public static final int NEO5_STYLE_STRICT_NEON = 2;       // Строгий Неон
+    public static final int NEO5_STYLE_COLOR_KALEIDOSCOPE = 3;// Цветовой калейдоскоп
+    public static final int NEO5_STYLE_AMBIENT_FLOW = 4;      // Глубокий градиент
+
     private int mDiagramIntervalMs = 1; // 1ms = 0.001 sec default (range: 1ms to 1000ms)
 
     private Context mContext;
@@ -185,10 +196,14 @@ public class AudioAnalyzer {
 
     public interface CalibrationCallback {
         void onCalibrationProgress(int secondsRemaining);
+        default void onCalibrationStage(int stage, String stageTitle, int secondsRemaining) {}
         void onCalibrationComplete();
     }
 
     private volatile boolean mIsCalibrating = false;
+    private volatile boolean mIsDeepCalibrating = false;
+    private int mCurrentCalibStage = CALIB_STAGE_IDLE;
+    private int mCalibPatternStyle = STYLE_AUTO;
     private long mCalibrationStartTime = 0;
     private int mCalibLastReportedSec = -1;
     private CalibrationCallback mCalibrationCallback = null;
@@ -197,6 +212,13 @@ public class AudioAnalyzer {
     private final float[] mCalibNarrowFluxSum = new float[NARROW_BANDS_COUNT];
     private final float[] mCalibWideMax = new float[WIDE_BANDS_COUNT];
     private final float[] mCalibWideFluxSum = new float[WIDE_BANDS_COUNT];
+
+    // Метрики глубокой калибровки для 12 полос
+    private final float[] mCalibBandPeakMag = new float[WIDE_BANDS_COUNT];
+    private final float[] mCalibBandSumSqMag = new float[WIDE_BANDS_COUNT];
+    private final int[] mCalibBandSamplesCount = new int[WIDE_BANDS_COUNT];
+    private final float[] mCalibBandPeakFlux = new float[WIDE_BANDS_COUNT];
+    private final float[] mCalibBandSumFlux = new float[WIDE_BANDS_COUNT];
 
     // Статистические гистограммы для автокалибровки без GC аллокаций
     private static final int CALIB_HIST_BINS = 32;
@@ -216,13 +238,10 @@ public class AudioAnalyzer {
     private int mCalibIntervalsCount = 0;
 
     // Settings
-    private int mTriggerMode = MODE_CUSTOM_PATTERN;
     private int mStudioAnalysisMode = STUDIO_MODE_FAST;
     private int mQuickTriggerPreset = 0;
     private float mSensitivity = 1.35f;
     private int mDecayMs = 75;
-    private int mPreset = PRESET_CUSTOM;
-    private int mAudioSource = SOURCE_INTERNAL;
     private int mSpectrumMode = SPECTRUM_MODE_NARROW;
     private int mCustomPattern = PATTERN_ALL;
 
@@ -351,11 +370,8 @@ public class AudioAnalyzer {
     public void loadSettings(Context context) {
         if (context == null) return;
         SharedPreferences sp = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        mPreset = sp.getInt(KEY_PRESET, PRESET_NOTHING_PURE);
-        mTriggerMode = sp.getInt(KEY_TRIGGER_MODE, MODE_CUSTOM_PATTERN);
         mSensitivity = sp.getFloat(KEY_SENSITIVITY, 1.35f);
         mDecayMs = sp.getInt(KEY_DECAY_MS, 75);
-        mAudioSource = sp.getInt(KEY_AUDIO_SOURCE, SOURCE_INTERNAL);
         mSpectrumMode = sp.getInt(KEY_SPECTRUM_MODE, SPECTRUM_MODE_NARROW);
         mStudioAnalysisMode = sp.getInt(KEY_STUDIO_ANALYSIS_MODE, STUDIO_MODE_FAST);
         mQuickTriggerPreset = sp.getInt(KEY_QUICK_TRIGGER_PRESET, 0);
@@ -410,11 +426,8 @@ public class AudioAnalyzer {
     }
 
     public void resetToDefaults(Context context) {
-        mPreset = PRESET_NOTHING_PURE;
-        mTriggerMode = MODE_CUSTOM_PATTERN;
         mSensitivity = 1.35f;
         mDecayMs = 75;
-        mAudioSource = SOURCE_INTERNAL;
         mSpectrumMode = SPECTRUM_MODE_NARROW;
         mStudioAnalysisMode = STUDIO_MODE_FAST;
         mQuickTriggerPreset = 0;
@@ -430,6 +443,10 @@ public class AudioAnalyzer {
         mMinHoldTimeMs = 40;
         mEnableMaxHoldTime = false;
         mMaxHoldTimeMs = 250;
+        java.util.Arrays.fill(mSegmentOnTime, 0);
+        java.util.Arrays.fill(mSegmentBurnStart, 0);
+        java.util.Arrays.fill(mSegmentCooldownUntil, 0);
+        java.util.Arrays.fill(mSegmentWasOn, false);
         mEnableFInterp = false;
         mFInterpSpeed = 12.0f;
         mEnableRandomVariation = false;
@@ -471,8 +488,6 @@ public class AudioAnalyzer {
 
     public void generateRandomConfig(Context context) {
         java.util.Random rnd = new java.util.Random();
-        mPreset = PRESET_CUSTOM;
-        mTriggerMode = MODE_CUSTOM_PATTERN;
 
         // Mode: 50% Fast, 50% Deep
         mStudioAnalysisMode = rnd.nextBoolean() ? STUDIO_MODE_FAST : STUDIO_MODE_DEEP;
@@ -541,11 +556,8 @@ public class AudioAnalyzer {
     public void saveSettings(Context context) {
         if (context == null) return;
         SharedPreferences.Editor ed = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit();
-        ed.putInt(KEY_PRESET, mPreset)
-                .putInt(KEY_TRIGGER_MODE, mTriggerMode)
-                .putFloat(KEY_SENSITIVITY, mSensitivity)
+        ed.putFloat(KEY_SENSITIVITY, mSensitivity)
                 .putInt(KEY_DECAY_MS, mDecayMs)
-                .putInt(KEY_AUDIO_SOURCE, mAudioSource)
                 .putInt(KEY_SPECTRUM_MODE, mSpectrumMode)
                 .putInt(KEY_STUDIO_ANALYSIS_MODE, mStudioAnalysisMode)
                 .putInt(KEY_QUICK_TRIGGER_PRESET, mQuickTriggerPreset)
@@ -621,45 +633,10 @@ public class AudioAnalyzer {
         }
     }
 
-    public void applyPreset(int preset, Context context) {
-        mPreset = preset;
-        switch (preset) {
-            case PRESET_NOTHING_PURE:
-                mTriggerMode = MODE_KICK_ONLY;
-                mSensitivity = 1.40f;
-                mDecayMs = 70;
-                break;
-            case PRESET_PHONK_808:
-                mTriggerMode = MODE_KICK_ONLY;
-                mSensitivity = 1.15f;
-                mDecayMs = 130;
-                break;
-            case PRESET_ROCK_DRUMS:
-                mTriggerMode = MODE_KICK_AND_SNARE;
-                mSensitivity = 1.30f;
-                mDecayMs = 80;
-                break;
-            case PRESET_EDM_CLUB:
-                mTriggerMode = MODE_FREQUENCY_SPLIT_4WAY;
-                mSensitivity = 1.25f;
-                mDecayMs = 90;
-                break;
-            case PRESET_CUSTOM:
-            default:
-                break;
-        }
-        saveSettings(context);
-    }
-
-    public int getPreset() { return mPreset; }
-    public int getTriggerMode() { return mTriggerMode; }
-    public void setTriggerMode(int mode) { mTriggerMode = mode; mPreset = PRESET_CUSTOM; }
     public float getSensitivity() { return mSensitivity; }
-    public void setSensitivity(float s) { mSensitivity = s; mPreset = PRESET_CUSTOM; }
+    public void setSensitivity(float s) { mSensitivity = s; }
     public int getDecayMs() { return mDecayMs; }
-    public void setDecayMs(int ms) { mDecayMs = ms; mPreset = PRESET_CUSTOM; }
-    public int getAudioSource() { return mAudioSource; }
-    public void setAudioSource(int source) { mAudioSource = source; }
+    public void setDecayMs(int ms) { mDecayMs = ms; }
 
     public boolean isBluetoothDelayEnabled() { return mEnableBluetoothDelay; }
     public void setBluetoothDelayEnabled(boolean enabled) { mEnableBluetoothDelay = enabled; }
@@ -669,7 +646,7 @@ public class AudioAnalyzer {
     public int getSpectrumMode() { return mSpectrumMode; }
     public void setSpectrumMode(int mode) { mSpectrumMode = mode; }
     public int getCustomPattern() { return mCustomPattern; }
-    public void setCustomPattern(int pattern) { mCustomPattern = pattern; mTriggerMode = MODE_CUSTOM_PATTERN; mPreset = PRESET_CUSTOM; }
+    public void setCustomPattern(int pattern) { mCustomPattern = pattern; }
 
     public int getStudioAnalysisMode() { return mStudioAnalysisMode; }
     public void setStudioAnalysisMode(int mode) { mStudioAnalysisMode = mode; }
@@ -930,7 +907,44 @@ public class AudioAnalyzer {
 
     public void cancelCalibration() {
         mIsCalibrating = false;
+        mIsDeepCalibrating = false;
+        mCurrentCalibStage = CALIB_STAGE_IDLE;
         mCalibrationCallback = null;
+    }
+
+    public void startDeepAutoCalibration(int durationMs, int patternStyleIndex, CalibrationCallback callback) {
+        // Принудительный перевод в Studio Mode Deep и 12 полос
+        mStudioAnalysisMode = STUDIO_MODE_DEEP;
+        mSpectrumMode = SPECTRUM_MODE_WIDE;
+        mFftSize = 2048;
+        mUseTukeyWindow = true;
+
+        mCalibrationDurationMs = Math.max(15000, Math.min(30000, durationMs));
+        mCalibPatternStyle = patternStyleIndex;
+        mCalibrationCallback = callback;
+        mCalibrationStartTime = System.currentTimeMillis();
+        mCalibLastReportedSec = (int) Math.ceil(mCalibrationDurationMs / 1000.0) + 1;
+        mCurrentCalibStage = CALIB_STAGE_SILENCE;
+        mCalibFramesCount = 0;
+        mCalibLastBeatTime = 0;
+        mCalibIntervalSumMs = 0;
+        mCalibIntervalsCount = 0;
+
+        for (int i = 0; i < WIDE_BANDS_COUNT; i++) {
+            mCalibWideMax[i] = 0f;
+            mCalibWideFluxSum[i] = 0f;
+            mCalibBandPeakMag[i] = 0f;
+            mCalibBandSumSqMag[i] = 0f;
+            mCalibBandSamplesCount[i] = 0;
+            mCalibBandPeakFlux[i] = 0f;
+            mCalibBandSumFlux[i] = 0f;
+            java.util.Arrays.fill(mCalibWideMagHist[i], 0);
+            java.util.Arrays.fill(mCalibWideFluxHist[i], 0);
+        }
+        java.util.Arrays.fill(mCalibRmsHist, 0);
+
+        mIsDeepCalibrating = true;
+        mIsCalibrating = true;
     }
 
     private void finishAutoCalibration() {
@@ -1200,6 +1214,402 @@ public class AudioAnalyzer {
         }
     }
 
+    private void finishDeepAutoCalibration() {
+        mIsCalibrating = false;
+        mIsDeepCalibrating = false;
+        mCurrentCalibStage = CALIB_STAGE_IDLE;
+        final CalibrationCallback cb = mCalibrationCallback;
+        mCalibrationCallback = null;
+
+        int frames = Math.max(1, mCalibFramesCount);
+
+        // 1. Анализ шумовой полки и динамического контраста
+        float rmsP10 = getPercentileFromHist(mCalibRmsHist, frames, 0.10f, CALIB_MAG_BIN_STEP);
+        float rmsP90 = getPercentileFromHist(mCalibRmsHist, frames, 0.90f, CALIB_MAG_BIN_STEP);
+        float dynamicContrast = (rmsP90 - rmsP10) / Math.max(0.015f, rmsP90);
+
+        mEnableLoudnessGate = true;
+        mLoudnessGateThreshold = Math.max(0.025f, Math.min(0.12f, rmsP10 * 1.35f + 0.008f));
+        mSensitivity = Math.max(1.15f, Math.min(1.50f, 1.15f + dynamicContrast * 0.35f));
+
+        // 2. Расчет метрик и индексов ритмичности для всех 12 полос
+        float[] crestFactor = new float[WIDE_BANDS_COUNT];
+        float[] peakToFloor = new float[WIDE_BANDS_COUNT];
+        float[] fluxSalience = new float[WIDE_BANDS_COUNT];
+        float[] rhythmScore = new float[WIDE_BANDS_COUNT];
+
+        for (int i = 0; i < WIDE_BANDS_COUNT; i++) {
+            float peakMag = mCalibBandPeakMag[i];
+            float rmsMag = (float) Math.sqrt(mCalibBandSumSqMag[i] / Math.max(1, mCalibBandSamplesCount[i]));
+            crestFactor[i] = (rmsMag > 0.001f) ? (peakMag / rmsMag) : 1.0f;
+
+            float p10 = getPercentileFromHist(mCalibWideMagHist[i], frames, 0.10f, CALIB_MAG_BIN_STEP);
+            float p95 = getPercentileFromHist(mCalibWideMagHist[i], frames, 0.95f, CALIB_MAG_BIN_STEP);
+            peakToFloor[i] = (p10 > 0.001f) ? (p95 / p10) : (p95 / 0.005f);
+
+            float avgFlux = mCalibBandSumFlux[i] / frames;
+            float p95Flux = getPercentileFromHist(mCalibWideFluxHist[i], frames, 0.95f, CALIB_FLUX_BIN_STEP);
+            fluxSalience[i] = (avgFlux > 0.001f) ? ((p95Flux - avgFlux) / avgFlux) : 0f;
+
+            // Отсев стационарного монотонного гула и слабого шума через Crest Factor
+            if (crestFactor[i] >= 2.1f && peakToFloor[i] >= 2.3f && fluxSalience[i] >= 1.2f && p95 >= 0.015f) {
+                rhythmScore[i] = (float) (1.25 * Math.log(crestFactor[i]) + 1.0 * Math.log(peakToFloor[i]) + 0.85 * fluxSalience[i]);
+            } else {
+                rhythmScore[i] = 0f;
+            }
+        }
+
+        // 3. Селекция ключевых полос по регистрам
+        boolean[] keepBand = new boolean[WIDE_BANDS_COUNT];
+
+        // Басовый регистр: 0, 1, 2
+        int bestBass = getBestBandIndex(rhythmScore, 0, 2);
+        if (bestBass != -1 && rhythmScore[bestBass] > 0) {
+            keepBand[bestBass] = true;
+        } else {
+            bestBass = getBestMagBandIndex(frames, 0, 2);
+            keepBand[bestBass] = true;
+        }
+        int secondBass = getSecondBestBandIndex(rhythmScore, 0, 2, bestBass);
+        if (secondBass != -1 && rhythmScore[secondBass] > 1.8f) {
+            keepBand[secondBass] = true;
+        }
+
+        // Средний регистр: 3, 4, 5, 6
+        int bestMid = getBestBandIndex(rhythmScore, 3, 6);
+        if (bestMid != -1 && rhythmScore[bestMid] > 0) {
+            keepBand[bestMid] = true;
+        } else {
+            bestMid = getBestMagBandIndex(frames, 3, 6);
+            keepBand[bestMid] = true;
+        }
+        int secondMid = getSecondBestBandIndex(rhythmScore, 3, 6, bestMid);
+        if (secondMid != -1 && rhythmScore[secondMid] > 1.6f) {
+            keepBand[secondMid] = true;
+        }
+
+        // Высокий регистр: 7, 8, 9, 10, 11
+        int bestHigh = getBestBandIndex(rhythmScore, 7, 11);
+        if (bestHigh != -1 && rhythmScore[bestHigh] > 0) {
+            keepBand[bestHigh] = true;
+        } else {
+            bestHigh = getBestMagBandIndex(frames, 7, 11);
+            keepBand[bestHigh] = true;
+        }
+        int secondHigh = getSecondBestBandIndex(rhythmScore, 7, 11, bestHigh);
+        if (secondHigh != -1 && rhythmScore[secondHigh] > 1.5f) {
+            keepBand[secondHigh] = true;
+        }
+
+        // 4. Настройка гейнов и порогов для включенных полос, отключение остальных
+        mEnableBandThreshold = true;
+        for (int i = 0; i < WIDE_BANDS_COUNT; i++) {
+            mWideEnabled[i] = keepBand[i];
+
+            if (!keepBand[i]) {
+                mWidePatterns[i] = PATTERN_OFF;
+                mWideColorCycle[i] = false;
+                mWideThresholds[i] = 0.40f;
+                mWideGains[i] = 1.0f;
+                continue;
+            }
+
+            // Рабочий гейн
+            float p95Mag = getPercentileFromHist(mCalibWideMagHist[i], frames, 0.95f, CALIB_MAG_BIN_STEP);
+            if (p95Mag >= 0.018f) {
+                mWideGains[i] = Math.max(0.70f, Math.min(2.10f, 0.58f / p95Mag));
+            } else {
+                mWideGains[i] = 1.0f;
+            }
+
+            // Адаптивный порог по спектральному потоку
+            float avgFlux = mCalibBandSumFlux[i] / frames;
+            float p92Flux = getPercentileFromHist(mCalibWideFluxHist[i], frames, 0.92f, CALIB_FLUX_BIN_STEP);
+            float delta = Math.max(0.025f, p92Flux - avgFlux);
+            mWideThresholds[i] = Math.max(0.08f, Math.min(0.32f, delta * 1.30f));
+        }
+
+        // 5. Пространственная маршрутизация зон для GT 5 или GT Neo 5
+        boolean isNeo5 = (mContext != null && DeviceModelManager.isGtNeo5(mContext));
+        if (isNeo5) {
+            int chosenStyle = mCalibPatternStyle;
+            if (chosenStyle == STYLE_AUTO) {
+                chosenStyle = classifyNeo5Style(bestBass, bestMid, bestHigh);
+            }
+            applyNeo5PatternStyle(chosenStyle, bestBass, secondBass, bestMid, secondMid, bestHigh, secondHigh);
+        } else {
+            int chosenStyle = mCalibPatternStyle;
+            if (chosenStyle == STYLE_AUTO) {
+                chosenStyle = classifyGt5Style(bestBass, bestMid, bestHigh);
+            }
+            applyGt5PatternStyle(chosenStyle, bestBass, secondBass, bestMid, secondMid, bestHigh, secondHigh);
+        }
+
+        // 6. Тайминги против стробоскопа
+        mEnableMinHoldTime = true;
+        if (mCalibIntervalsCount >= 3) {
+            float avgInterval = (float) mCalibIntervalSumMs / mCalibIntervalsCount;
+            mMinHoldTimeMs = Math.max(45, Math.min(65, Math.round(avgInterval * 0.095f)));
+            mDecayMs = Math.max(55, Math.min(85, Math.round(avgInterval * 0.18f)));
+        } else {
+            mMinHoldTimeMs = 50;
+            mDecayMs = 70;
+        }
+
+        if (mContext != null) {
+            saveSettings(mContext);
+        }
+
+        if (cb != null) {
+            mMainHandler.post(cb::onCalibrationComplete);
+        }
+    }
+
+    private int classifyGt5Style(int bestBass, int bestMid, int bestHigh) {
+        float avgInterval = (mCalibIntervalsCount > 0) ? (float) mCalibIntervalSumMs / mCalibIntervalsCount : 480f;
+        float bpm = (avgInterval > 0) ? (60000.0f / avgInterval) : 120.0f;
+        float bassPeak = (bestBass != -1) ? mCalibBandPeakMag[bestBass] : 0f;
+        float midPeak = (bestMid != -1) ? mCalibBandPeakMag[bestMid] : 0f;
+        float highPeak = (bestHigh != -1) ? mCalibBandPeakMag[bestHigh] : 0f;
+
+        if (bassPeak > 0.65f && bassPeak > midPeak * 1.4f) {
+            return GT5_STYLE_DROP_SLAM;
+        } else if (bpm >= 140f) {
+            return GT5_STYLE_STEREO_PINGPONG;
+        } else if (midPeak > 0.50f && midPeak > bassPeak * 1.1f) {
+            return GT5_STYLE_VOCAL_BREATHE;
+        } else if (highPeak > 0.40f && bpm >= 120f) {
+            return GT5_STYLE_CROSS_PULSE;
+        } else {
+            return GT5_STYLE_STAGE_CLASSIC;
+        }
+    }
+
+    private void applyGt5PatternStyle(int style, int b1, int b2, int m1, int m2, int h1, int h2) {
+        for (int i = 0; i < WIDE_BANDS_COUNT; i++) {
+            if (!mWideEnabled[i]) {
+                mWidePatterns[i] = PATTERN_OFF;
+                mWideColorCycle[i] = false;
+            }
+        }
+
+        switch (style) {
+            case GT5_STYLE_STAGE_CLASSIC: // 1. Классическая сцена
+                if (b1 != -1) mWidePatterns[b1] = PATTERN_BOTTOM;
+                if (b2 != -1) mWidePatterns[b2] = PATTERN_TOP_BOTTOM;
+                if (m1 != -1) mWidePatterns[m1] = PATTERN_LEFT_RIGHT;
+                if (m2 != -1) mWidePatterns[m2] = PATTERN_TOP_LEFT;
+                if (h1 != -1) mWidePatterns[h1] = PATTERN_TOP;
+                if (h2 != -1) mWidePatterns[h2] = PATTERN_TOP_RIGHT;
+                break;
+
+            case GT5_STYLE_STEREO_PINGPONG: // 2. Стерео-Пинг-Понг
+                if (b1 != -1) mWidePatterns[b1] = PATTERN_BOTTOM;
+                if (b2 != -1) mWidePatterns[b2] = PATTERN_BOTTOM;
+                if (m1 != -1) mWidePatterns[m1] = PATTERN_LEFT;
+                if (m2 != -1) mWidePatterns[m2] = PATTERN_RIGHT;
+                if (h1 != -1) mWidePatterns[h1] = PATTERN_TOP;
+                if (h2 != -1) mWidePatterns[h2] = PATTERN_TOP_LEFT;
+                break;
+
+            case GT5_STYLE_CROSS_PULSE: // 3. Крест и Пульс
+                if (b1 != -1) mWidePatterns[b1] = PATTERN_BOTTOM;
+                if (b2 != -1) mWidePatterns[b2] = PATTERN_LEFT_RIGHT;
+                if (m1 != -1) mWidePatterns[m1] = PATTERN_TOP_BOTTOM;
+                if (m2 != -1) mWidePatterns[m2] = PATTERN_LEFT_RIGHT;
+                if (h1 != -1) mWidePatterns[h1] = PATTERN_TOP;
+                if (h2 != -1) mWidePatterns[h2] = PATTERN_TOP;
+                break;
+
+            case GT5_STYLE_DIAGONAL_VORTEX: // 4. Диагональный вихрь
+                if (b1 != -1) mWidePatterns[b1] = PATTERN_BOTTOM_LEFT;
+                if (b2 != -1) mWidePatterns[b2] = PATTERN_BOTTOM_RIGHT;
+                if (m1 != -1) mWidePatterns[m1] = PATTERN_TOP_LEFT;
+                if (m2 != -1) mWidePatterns[m2] = PATTERN_BOTTOM_RIGHT;
+                if (h1 != -1) mWidePatterns[h1] = PATTERN_TOP_RIGHT;
+                if (h2 != -1) mWidePatterns[h2] = PATTERN_TOP_LEFT;
+                break;
+
+            case GT5_STYLE_BEAT_SNIPER: // 5. Бит-Снайпер
+                if (b1 != -1) mWidePatterns[b1] = PATTERN_BOTTOM;
+                if (b2 != -1) mWidePatterns[b2] = PATTERN_OFF;
+                if (m1 != -1) mWidePatterns[m1] = PATTERN_TOP;
+                if (m2 != -1) mWidePatterns[m2] = PATTERN_OFF;
+                if (h1 != -1) mWidePatterns[h1] = PATTERN_RIGHT;
+                if (h2 != -1) mWidePatterns[h2] = PATTERN_LEFT;
+                break;
+
+            case GT5_STYLE_VERTICAL_ELEVATOR: // 6. Вертикальный эквалайзер
+                if (b1 != -1) mWidePatterns[b1] = PATTERN_BOTTOM;
+                if (b2 != -1) mWidePatterns[b2] = PATTERN_BOTTOM_LEFT;
+                if (m1 != -1) mWidePatterns[m1] = PATTERN_LEFT_RIGHT;
+                if (m2 != -1) mWidePatterns[m2] = PATTERN_TOP_LEFT;
+                if (h1 != -1) mWidePatterns[h1] = PATTERN_TOP;
+                if (h2 != -1) mWidePatterns[h2] = PATTERN_TOP_RIGHT;
+                break;
+
+            case GT5_STYLE_DROP_SLAM: // 7. Дроп-Слэм
+                if (b1 != -1) mWidePatterns[b1] = PATTERN_BOTTOM;
+                if (b2 != -1) mWidePatterns[b2] = PATTERN_TOP_BOTTOM;
+                if (m1 != -1) mWidePatterns[m1] = PATTERN_LEFT_RIGHT;
+                if (m2 != -1) mWidePatterns[m2] = PATTERN_LEFT_RIGHT;
+                if (h1 != -1) mWidePatterns[h1] = PATTERN_TOP;
+                if (h2 != -1) mWidePatterns[h2] = PATTERN_ALL;
+                break;
+
+            case GT5_STYLE_PERIMETER_ORBIT: // 8. Периметр-Орбита
+                if (b1 != -1) mWidePatterns[b1] = PATTERN_BOTTOM;
+                if (b2 != -1) mWidePatterns[b2] = PATTERN_BOTTOM_LEFT;
+                if (m1 != -1) mWidePatterns[m1] = PATTERN_LEFT;
+                if (m2 != -1) mWidePatterns[m2] = PATTERN_TOP_LEFT;
+                if (h1 != -1) mWidePatterns[h1] = PATTERN_TOP;
+                if (h2 != -1) mWidePatterns[h2] = PATTERN_RIGHT;
+                break;
+
+            case GT5_STYLE_VOCAL_BREATHE: // 9. Вокальное дыхание
+                if (b1 != -1) mWidePatterns[b1] = PATTERN_BOTTOM;
+                if (b2 != -1) mWidePatterns[b2] = PATTERN_BOTTOM;
+                if (m1 != -1) mWidePatterns[m1] = PATTERN_TOP_BOTTOM;
+                if (m2 != -1) mWidePatterns[m2] = PATTERN_LEFT_RIGHT;
+                if (h1 != -1) mWidePatterns[h1] = PATTERN_TOP;
+                if (h2 != -1) mWidePatterns[h2] = PATTERN_TOP;
+                mEnableFInterp = true;
+                mFInterpSpeed = 12.0f;
+                break;
+
+            case GT5_STYLE_ANTIPHASE: // 10. Антифазный взрыв
+                if (b1 != -1) mWidePatterns[b1] = PATTERN_BOTTOM;
+                if (b2 != -1) mWidePatterns[b2] = PATTERN_BOTTOM;
+                if (m1 != -1) mWidePatterns[m1] = PATTERN_LEFT_RIGHT;
+                if (m2 != -1) mWidePatterns[m2] = PATTERN_TOP_LEFT;
+                if (h1 != -1) mWidePatterns[h1] = PATTERN_TOP;
+                if (h2 != -1) mWidePatterns[h2] = PATTERN_TOP_RIGHT;
+                break;
+
+            default:
+                if (b1 != -1) mWidePatterns[b1] = PATTERN_BOTTOM;
+                if (b2 != -1) mWidePatterns[b2] = PATTERN_TOP_BOTTOM;
+                if (m1 != -1) mWidePatterns[m1] = PATTERN_LEFT_RIGHT;
+                if (m2 != -1) mWidePatterns[m2] = PATTERN_TOP_LEFT;
+                if (h1 != -1) mWidePatterns[h1] = PATTERN_TOP;
+                if (h2 != -1) mWidePatterns[h2] = PATTERN_TOP_RIGHT;
+                break;
+        }
+    }
+
+    private int classifyNeo5Style(int bestBass, int bestMid, int bestHigh) {
+        float avgInterval = (mCalibIntervalsCount > 0) ? (float) mCalibIntervalSumMs / mCalibIntervalsCount : 480f;
+        float bpm = (avgInterval > 0) ? (60000.0f / avgInterval) : 120.0f;
+        float bassPeak = (bestBass != -1) ? mCalibBandPeakMag[bestBass] : 0f;
+        float midPeak = (bestMid != -1) ? mCalibBandPeakMag[bestMid] : 0f;
+
+        if (bpm >= 135f) {
+            return NEO5_STYLE_COLOR_KALEIDOSCOPE;
+        } else if (bassPeak > 0.65f) {
+            return NEO5_STYLE_STRICT_NEON;
+        } else if (midPeak > 0.50f) {
+            return NEO5_STYLE_PULSE_CHROMATIC;
+        } else {
+            return NEO5_STYLE_AMBIENT_FLOW;
+        }
+    }
+
+    private void applyNeo5PatternStyle(int style, int b1, int b2, int m1, int m2, int h1, int h2) {
+        for (int i = 0; i < WIDE_BANDS_COUNT; i++) {
+            if (!mWideEnabled[i]) {
+                mWidePatterns[i] = PATTERN_OFF;
+                mWideColorCycle[i] = false;
+            }
+        }
+
+        switch (style) {
+            case NEO5_STYLE_PULSE_CHROMATIC: // 1. Пульс и Хроматика
+                if (b1 != -1) mWidePatterns[b1] = PATTERN_ALL;
+                if (b2 != -1) mWidePatterns[b2] = PATTERN_ALL;
+                if (m1 != -1) mWidePatterns[m1] = PATTERN_FLASH_AND_COLOR_CYCLE;
+                if (m2 != -1) mWidePatterns[m2] = PATTERN_COLOR_CYCLE;
+                if (h1 != -1) mWidePatterns[h1] = PATTERN_COLOR_CYCLE;
+                if (h2 != -1) mWidePatterns[h2] = PATTERN_OFF;
+                break;
+
+            case NEO5_STYLE_STRICT_NEON: // 2. Строгий Неон
+                if (b1 != -1) mWidePatterns[b1] = PATTERN_ALL;
+                if (b2 != -1) mWidePatterns[b2] = PATTERN_ALL;
+                if (m1 != -1) mWidePatterns[m1] = PATTERN_ALL;
+                if (m2 != -1) mWidePatterns[m2] = PATTERN_ALL;
+                if (h1 != -1) mWidePatterns[h1] = PATTERN_COLOR_CYCLE;
+                if (h2 != -1) mWidePatterns[h2] = PATTERN_OFF;
+                break;
+
+            case NEO5_STYLE_COLOR_KALEIDOSCOPE: // 3. Цветовой калейдоскоп
+                if (b1 != -1) mWidePatterns[b1] = PATTERN_FLASH_AND_COLOR_CYCLE;
+                if (b2 != -1) mWidePatterns[b2] = PATTERN_FLASH_AND_COLOR_CYCLE;
+                if (m1 != -1) mWidePatterns[m1] = PATTERN_FLASH_AND_COLOR_CYCLE;
+                if (m2 != -1) mWidePatterns[m2] = PATTERN_COLOR_CYCLE;
+                if (h1 != -1) mWidePatterns[h1] = PATTERN_ALL;
+                if (h2 != -1) mWidePatterns[h2] = PATTERN_COLOR_CYCLE;
+                break;
+
+            case NEO5_STYLE_AMBIENT_FLOW: // 4. Глубокий градиент
+                if (b1 != -1) mWidePatterns[b1] = PATTERN_ALL;
+                if (b2 != -1) mWidePatterns[b2] = PATTERN_ALL;
+                if (m1 != -1) mWidePatterns[m1] = PATTERN_COLOR_CYCLE;
+                if (m2 != -1) mWidePatterns[m2] = PATTERN_COLOR_CYCLE;
+                if (h1 != -1) mWidePatterns[h1] = PATTERN_OFF;
+                if (h2 != -1) mWidePatterns[h2] = PATTERN_OFF;
+                mEnableFInterp = true;
+                mFInterpSpeed = 10.0f;
+                break;
+
+            default:
+                if (b1 != -1) mWidePatterns[b1] = PATTERN_ALL;
+                if (b2 != -1) mWidePatterns[b2] = PATTERN_ALL;
+                if (m1 != -1) mWidePatterns[m1] = PATTERN_FLASH_AND_COLOR_CYCLE;
+                if (m2 != -1) mWidePatterns[m2] = PATTERN_COLOR_CYCLE;
+                if (h1 != -1) mWidePatterns[h1] = PATTERN_COLOR_CYCLE;
+                if (h2 != -1) mWidePatterns[h2] = PATTERN_OFF;
+                break;
+        }
+    }
+
+    private int getBestBandIndex(float[] scores, int start, int end) {
+        int best = -1;
+        float maxScore = 0f;
+        for (int i = start; i <= end; i++) {
+            if (scores[i] > maxScore) {
+                maxScore = scores[i];
+                best = i;
+            }
+        }
+        return best;
+    }
+
+    private int getSecondBestBandIndex(float[] scores, int start, int end, int exclude) {
+        int second = -1;
+        float maxScore = 0f;
+        for (int i = start; i <= end; i++) {
+            if (i == exclude) continue;
+            if (scores[i] > maxScore) {
+                maxScore = scores[i];
+                second = i;
+            }
+        }
+        return second;
+    }
+
+    private int getBestMagBandIndex(int frames, int start, int end) {
+        int best = start;
+        float maxP95 = -1f;
+        for (int i = start; i <= end; i++) {
+            float p95 = getPercentileFromHist(mCalibWideMagHist[i], frames, 0.95f, CALIB_MAG_BIN_STEP);
+            if (p95 > maxP95) {
+                maxP95 = p95;
+                best = i;
+            }
+        }
+        return best;
+    }
+
 
     public boolean isEnableBandThreshold() { return mEnableBandThreshold; }
     public void setEnableBandThreshold(boolean enable) { mEnableBandThreshold = enable; }
@@ -1392,7 +1802,6 @@ public class AudioAnalyzer {
         mActivePresetId = preset.id;
         mFftSize = preset.fftSize;
         mUseTukeyWindow = preset.useTukeyWindow;
-        mTriggerMode = preset.triggerMode;
         mCustomPattern = preset.patternIndex;
         mSpectrumMode = preset.spectrumMode;
         mStudioAnalysisMode = preset.studioAnalysisMode;
@@ -1479,7 +1888,6 @@ public class AudioAnalyzer {
         AudioPreset p = new AudioPreset(id, name, false, model);
         p.fftSize = mFftSize;
         p.useTukeyWindow = mUseTukeyWindow;
-        p.triggerMode = mTriggerMode;
         p.patternIndex = mCustomPattern;
         p.spectrumMode = mSpectrumMode;
         p.studioAnalysisMode = mStudioAnalysisMode;
@@ -1743,13 +2151,38 @@ public class AudioAnalyzer {
             float sensScale = 1.6f / Math.max(0.4f, mSensitivity);
             float threshold = mNarrowAvg[i] * sensScale + (mEnableBandThreshold ? mNarrowThresholds[i] * 0.40f : 0.015f);
 
+            // Apply Organic Variation to threshold jitter
+            if (mEnableRandomVariation) {
+                float var = 1.0f + (mFilterRnd.nextFloat() * 2f - 1f) * (mRandomVariationDepth * 0.35f);
+                threshold *= var;
+            }
+
             // aubio Peak Picking: onset triggers on the apex of the flux curve
             boolean isLocalPeak = mNarrowFlux[i] >= mPrevNarrowFlux[i];
             mPrevNarrowFlux[i] = mNarrowFlux[i];
 
             boolean levelOk = mNarrowBands[i] > 0.015f; // noise floor gate
 
-            if (mNarrowFlux[i] > threshold && isLocalPeak && levelOk && (now - mLastNarrowBeatTime[i] > NARROW_MIN_INTERVAL_MS[i])) {
+            boolean triggered;
+            if (mEnableOnset) {
+                // Onset mode: sharp attack detection (Spectral Flux + Peak Picking)
+                triggered = (mNarrowFlux[i] > threshold) && isLocalPeak && levelOk;
+            } else {
+                // Envelope mode: volume / energy follower
+                float envThresh = (mEnableBandThreshold ? mNarrowThresholds[i] : 0.08f) * sensScale * 0.45f;
+                triggered = (mNarrowBands[i] > envThresh) && levelOk;
+            }
+
+            // Centroid focus filtering
+            if (mEnableCentroid) {
+                if (mCentroidMode == 0 && mCurrentCentroid > 2500f && i <= 1) {
+                    triggered = false;
+                } else if (mCentroidMode == 1 && mCurrentCentroid < 800f && i >= 2) {
+                    triggered = false;
+                }
+            }
+
+            if (triggered && (now - mLastNarrowBeatTime[i] > NARROW_MIN_INTERVAL_MS[i])) {
                 narrowHit[i] = true;
                 mLastNarrowBeatTime[i] = now;
                 mNarrowIntensities[i] = 1.0f;
@@ -1758,7 +2191,12 @@ public class AudioAnalyzer {
                 if (elapsed >= mDecayMs) {
                     mNarrowIntensities[i] = 0f;
                 } else {
-                    mNarrowIntensities[i] = 1.0f - ((float) elapsed / mDecayMs);
+                    if (mEnableFInterp) {
+                        float decayProgress = (float) elapsed / mDecayMs;
+                        mNarrowIntensities[i] = (float) Math.exp(-decayProgress * (mFInterpSpeed * 0.30f));
+                    } else {
+                        mNarrowIntensities[i] = 1.0f - ((float) elapsed / mDecayMs);
+                    }
                 }
             }
 
@@ -1779,12 +2217,33 @@ public class AudioAnalyzer {
             float sensScale = 1.6f / Math.max(0.4f, mSensitivity);
             float threshold = mWideAvg[i] * sensScale + (mEnableBandThreshold ? mWideThresholds[i] * 0.40f : 0.015f);
 
+            if (mEnableRandomVariation) {
+                float var = 1.0f + (mFilterRnd.nextFloat() * 2f - 1f) * (mRandomVariationDepth * 0.35f);
+                threshold *= var;
+            }
+
             boolean isLocalPeak = mWideFlux[i] >= mPrevWideFlux[i];
             mPrevWideFlux[i] = mWideFlux[i];
 
             boolean levelOk = mWideBands[i] > 0.015f;
 
-            if (mWideFlux[i] > threshold && isLocalPeak && levelOk && (now - mLastWideBeatTime[i] > WIDE_MIN_INTERVAL_MS[i])) {
+            boolean triggered;
+            if (mEnableOnset) {
+                triggered = (mWideFlux[i] > threshold) && isLocalPeak && levelOk;
+            } else {
+                float envThresh = (mEnableBandThreshold ? mWideThresholds[i] : 0.08f) * sensScale * 0.45f;
+                triggered = (mWideBands[i] > envThresh) && levelOk;
+            }
+
+            if (mEnableCentroid) {
+                if (mCentroidMode == 0 && mCurrentCentroid > 2800f && i <= 2) {
+                    triggered = false;
+                } else if (mCentroidMode == 1 && mCurrentCentroid < 700f && i >= 7) {
+                    triggered = false;
+                }
+            }
+
+            if (triggered && (now - mLastWideBeatTime[i] > WIDE_MIN_INTERVAL_MS[i])) {
                 wideHit[i] = true;
                 mLastWideBeatTime[i] = now;
                 mWideIntensities[i] = 1.0f;
@@ -1793,7 +2252,12 @@ public class AudioAnalyzer {
                 if (elapsed >= mDecayMs) {
                     mWideIntensities[i] = 0f;
                 } else {
-                    mWideIntensities[i] = 1.0f - ((float) elapsed / mDecayMs);
+                    if (mEnableFInterp) {
+                        float decayProgress = (float) elapsed / mDecayMs;
+                        mWideIntensities[i] = (float) Math.exp(-decayProgress * (mFInterpSpeed * 0.30f));
+                    } else {
+                        mWideIntensities[i] = 1.0f - ((float) elapsed / mDecayMs);
+                    }
                 }
             }
 
@@ -1805,6 +2269,54 @@ public class AudioAnalyzer {
 
         // Calibration statistics collection
         if (mIsCalibrating) {
+            long elapsed = now - mCalibrationStartTime;
+            int remainingSec = (int) Math.max(0, Math.ceil((mCalibrationDurationMs - elapsed) / 1000.0));
+
+            if (mIsDeepCalibrating) {
+                float progress = (float) elapsed / mCalibrationDurationMs;
+                int newStage;
+                String stageTitle;
+                if (progress < 0.20f) {
+                    newStage = CALIB_STAGE_SILENCE;
+                    stageTitle = "Этап 1: Тишина и диапазон";
+                } else if (progress < 0.60f) {
+                    newStage = CALIB_STAGE_PROFILING;
+                    stageTitle = "Этап 2: Спектр и отсев полос";
+                } else if (progress < 0.85f) {
+                    newStage = CALIB_STAGE_THRESHOLDS;
+                    stageTitle = "Этап 3: Пороги и антистроб";
+                } else {
+                    newStage = CALIB_STAGE_SPATIAL;
+                    stageTitle = "Этап 4: Маршрутизация зон";
+                }
+
+                if (newStage != mCurrentCalibStage || remainingSec != mCalibLastReportedSec) {
+                    mCurrentCalibStage = newStage;
+                    mCalibLastReportedSec = remainingSec;
+                    if (mCalibrationCallback != null) {
+                        final int st = newStage;
+                        final String ttl = stageTitle;
+                        final int sec = remainingSec;
+                        mMainHandler.post(() -> {
+                            if (mCalibrationCallback != null) {
+                                mCalibrationCallback.onCalibrationStage(st, ttl, sec);
+                                mCalibrationCallback.onCalibrationProgress(sec);
+                            }
+                        });
+                    }
+                }
+            } else {
+                if (remainingSec != mCalibLastReportedSec) {
+                    mCalibLastReportedSec = remainingSec;
+                    if (mCalibrationCallback != null) {
+                        final int sec = remainingSec;
+                        mMainHandler.post(() -> {
+                            if (mCalibrationCallback != null) mCalibrationCallback.onCalibrationProgress(sec);
+                        });
+                    }
+                }
+            }
+
             mCalibFramesCount++;
             for (int i = 0; i < NARROW_BANDS_COUNT; i++) {
                 float val = mNarrowBands[i];
@@ -1822,6 +2334,16 @@ public class AudioAnalyzer {
                 if (val > mCalibWideMax[i]) mCalibWideMax[i] = val;
                 mCalibWideFluxSum[i] += mWideFlux[i];
 
+                if (mIsDeepCalibrating) {
+                    if (val > mCalibBandPeakMag[i]) mCalibBandPeakMag[i] = val;
+                    mCalibBandSumSqMag[i] += val * val;
+                    mCalibBandSamplesCount[i]++;
+
+                    float flux = mWideFlux[i];
+                    if (flux > mCalibBandPeakFlux[i]) mCalibBandPeakFlux[i] = flux;
+                    mCalibBandSumFlux[i] += flux;
+                }
+
                 int magBin = Math.max(0, Math.min(CALIB_HIST_BINS - 1, (int) (val / CALIB_MAG_BIN_STEP)));
                 mCalibWideMagHist[i][magBin]++;
 
@@ -1833,7 +2355,8 @@ public class AudioAnalyzer {
             mCalibRmsHist[rmsBin]++;
 
             // Отслеживание ритмических интервалов между басовыми ударами для адаптивного Decay
-            if (narrowHit[0] || narrowHit[1]) {
+            boolean isBassBeat = narrowHit[0] || narrowHit[1] || wideHit[0] || wideHit[1];
+            if (isBassBeat) {
                 if (mCalibLastBeatTime > 0) {
                     long dt = now - mCalibLastBeatTime;
                     if (dt >= 120 && dt <= 1200) {
@@ -1844,20 +2367,12 @@ public class AudioAnalyzer {
                 mCalibLastBeatTime = now;
             }
 
-            long elapsed = now - mCalibrationStartTime;
-            int remainingSec = (int) Math.max(0, Math.ceil((mCalibrationDurationMs - elapsed) / 1000.0));
-            if (remainingSec != mCalibLastReportedSec) {
-                mCalibLastReportedSec = remainingSec;
-                if (mCalibrationCallback != null) {
-                    final int sec = remainingSec;
-                    mMainHandler.post(() -> {
-                        if (mCalibrationCallback != null) mCalibrationCallback.onCalibrationProgress(sec);
-                    });
-                }
-            }
-
             if (elapsed >= mCalibrationDurationMs) {
-                finishAutoCalibration();
+                if (mIsDeepCalibrating) {
+                    finishDeepAutoCalibration();
+                } else {
+                    finishAutoCalibration();
+                }
             }
         }
 
@@ -1927,31 +2442,76 @@ public class AudioAnalyzer {
             }
         }
 
-        // 6. Apply Min & Max Hold Time logic
-        if (beatHit) {
-            mLastBeatTime = now;
-            mIsBeatActive = true;
-            mLastPeakIntensity = maxIntensity;
+        // 6. Apply Spatial Limiter & Hardware Segment Constraints (Min & Max Hold Time)
+        int[] segMasks = { RealmeGlyphDriver.LED_A, RealmeGlyphDriver.LED_D, RealmeGlyphDriver.LED_C, RealmeGlyphDriver.LED_B };
+
+        // Spatial Limiter: restrict concurrent segments to avoid overwhelming full strobe
+        if (mEnableLimiter && Integer.bitCount(activeMask) > 2) {
+            if ((activeMask & RealmeGlyphDriver.LED_C) != 0 && (activeMask & RealmeGlyphDriver.LED_A) != 0) {
+                activeMask = RealmeGlyphDriver.LED_C | RealmeGlyphDriver.LED_A;
+            } else if ((activeMask & RealmeGlyphDriver.LED_D) != 0 && (activeMask & RealmeGlyphDriver.LED_B) != 0) {
+                activeMask = RealmeGlyphDriver.LED_D | RealmeGlyphDriver.LED_B;
+            } else {
+                int count = 0;
+                int limitedMask = 0;
+                for (int k = 0; k < 4; k++) {
+                    if ((activeMask & segMasks[k]) != 0) {
+                        limitedMask |= segMasks[k];
+                        count++;
+                        if (count >= 2) break;
+                    }
+                }
+                activeMask = limitedMask;
+            }
         }
 
-        if (mEnableMinHoldTime && mIsBeatActive && passesFilter) {
-            long pulseAge = now - mLastBeatTime;
-            if (pulseAge < mMinHoldTimeMs) {
-                maxIntensity = Math.max(maxIntensity, Math.max(0.40f, mLastPeakIntensity * 0.80f));
-                if (activeMask == 0) {
-                    activeMask = getPatternLedMask(mCustomPattern);
+        // Hardware Segment Timing Control (Min Hold Time & Max Hold Time with protective cooldown)
+        for (int k = 0; k < 4; k++) {
+            int segMask = segMasks[k];
+            boolean requested = (activeMask & segMask) != 0;
+
+            // Enforce protective cooldown after Max Hold cutoff
+            if (mSegmentCooldownUntil[k] > now) {
+                requested = false;
+                activeMask &= ~segMask;
+            }
+
+            if (requested) {
+                if (!mSegmentWasOn[k]) {
+                    mSegmentOnTime[k] = now;
+                    mSegmentBurnStart[k] = now;
+                    mSegmentWasOn[k] = true;
                 }
             }
+
+            // Min Hold Time: guarantee minimum physical pulse duration against micro-flicker
+            if (mEnableMinHoldTime && mSegmentWasOn[k]) {
+                long heldMs = now - mSegmentOnTime[k];
+                if (heldMs < mMinHoldTimeMs) {
+                    activeMask |= segMask;
+                }
+            }
+
+            // Max Hold Time: cut off continuous burn to prevent static blinding light
+            if (mEnableMaxHoldTime && (activeMask & segMask) != 0) {
+                long burnMs = now - mSegmentBurnStart[k];
+                if (burnMs >= mMaxHoldTimeMs) {
+                    activeMask &= ~segMask;
+                    mSegmentWasOn[k] = false;
+                    mSegmentCooldownUntil[k] = now + 120; // 120ms anti-strobe rest period
+                }
+            }
+
+            if ((activeMask & segMask) == 0) {
+                mSegmentWasOn[k] = false;
+            }
         }
 
-        if (mEnableMaxHoldTime && mIsBeatActive) {
-            long pulseAge = now - mLastBeatTime;
-            if (pulseAge > mMaxHoldTimeMs) {
-                maxIntensity = 0f;
-                activeMask = 0;
-                beatHit = false;
-                mIsBeatActive = false;
-            }
+        if (activeMask != 0) {
+            maxIntensity = Math.max(maxIntensity, 0.40f);
+        } else {
+            maxIntensity = 0f;
+            beatHit = false;
         }
 
         // Apply Organic Variation filter

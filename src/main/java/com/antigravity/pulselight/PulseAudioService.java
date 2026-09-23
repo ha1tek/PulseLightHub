@@ -13,7 +13,6 @@ import android.media.AudioAttributes;
 import android.media.AudioFormat;
 import android.media.AudioPlaybackCaptureConfiguration;
 import android.media.AudioRecord;
-import android.media.audiofx.Visualizer;
 import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionManager;
 import android.os.Build;
@@ -52,7 +51,6 @@ public class PulseAudioService extends Service {
     private AudioAnalyzer mAnalyzer;
     private MediaProjection mMediaProjection;
     private AudioRecord mAudioRecord;
-    private Visualizer mVisualizer;
     private Thread mCaptureThread;
     private volatile boolean mIsRunning = false;
     private volatile boolean mIsEngineEnabled = true;
@@ -117,6 +115,12 @@ public class PulseAudioService extends Service {
                                             boolean calibMinHold, AudioAnalyzer.CalibrationCallback callback) {
         if (sInstance != null && sInstance.mAnalyzer != null) {
             sInstance.mAnalyzer.startAutoCalibration(durationMs, calibGains, calibThresholds, calibSens, calibLoudness, calibDecay, calibMinHold, callback);
+        }
+    }
+
+    public static void startDeepAutoCalibration(int durationMs, int patternStyleIndex, AudioAnalyzer.CalibrationCallback callback) {
+        if (sInstance != null && sInstance.mAnalyzer != null) {
+            sInstance.mAnalyzer.startDeepAutoCalibration(durationMs, patternStyleIndex, callback);
         }
     }
 
@@ -367,7 +371,6 @@ public class PulseAudioService extends Service {
             mCaptureThread = null;
         }
         releaseAudioRecord();
-        releaseVisualizer();
     }
 
     /**
@@ -448,10 +451,6 @@ public class PulseAudioService extends Service {
         } finally {
             releaseAudioRecord();
         }
-    }
-
-    private void runVisualizerLoop() {
-        // Disabled: Pure system audio only, microphone fallback disabled
     }
 
     private void routeAnalysisResult(AudioAnalyzer.AnalysisResult result) {
@@ -545,16 +544,6 @@ public class PulseAudioService extends Service {
         }
     }
 
-    private void releaseVisualizer() {
-        try {
-            if (mVisualizer != null) {
-                mVisualizer.setEnabled(false);
-                mVisualizer.release();
-                mVisualizer = null;
-            }
-        } catch (Throwable ignored) {}
-    }
-
     private void releaseAudioRecord() {
         try {
             if (mAudioRecord != null) {
@@ -591,7 +580,6 @@ public class PulseAudioService extends Service {
             mDelayHandler = null;
         }
         releaseAudioRecord();
-        releaseVisualizer();
         sActiveMediaProjection = null;
         sLastProjectionData = null;
         sLastProjectionResultCode = Activity.RESULT_CANCELED;

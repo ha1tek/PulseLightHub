@@ -41,8 +41,9 @@ import android.widget.ListView;
 import android.widget.PopupWindow;
 import android.widget.ProgressBar;
 import android.widget.SeekBar;
+import android.widget.Spinner;
+import android.widget.ArrayAdapter;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -148,6 +149,12 @@ public class MainActivity extends Activity {
 
     private int mSelectedBandIndex = 0;
     private boolean mSelectedBandIsWide = false;
+
+    // Presets Dialog State
+    private static final int PRESET_TAB_STANDARD = 0;
+    private static final int PRESET_TAB_USER = 1;
+    private int mPresetTabMode = PRESET_TAB_STANDARD;
+    private String mSelectedSubgenreFilter = null;
 
     // Device Model Selection (GT 5 vs GT NEO 5)
     private View btnModelGt5, btnModelGtNeo5;
@@ -511,9 +518,6 @@ public class MainActivity extends Activity {
             tvPermStatus.setText("ACTIVE");
             tvPermStatus.setBackground(ThemeManager.createPillDrawable(accent, 999, this));
             tvPermStatus.setTextColor(ThemeManager.getContrastTextColor(accent));
-            tvPermStatus.setOnClickListener(v -> {
-                Toast.makeText(this, RealmeGlyphDriver.getStatus(), Toast.LENGTH_SHORT).show();
-            });
         }
     }
 
@@ -627,7 +631,6 @@ public class MainActivity extends Activity {
                 if (glyphVectorView != null) {
                     glyphVectorView.setPower(false);
                 }
-                Toast.makeText(this, "Подсветка выключена", Toast.LENGTH_SHORT).show();
             });
         }
 
@@ -728,8 +731,6 @@ public class MainActivity extends Activity {
                     }, 250);
                 }
                 RealmeGlyphDriver.flashSegment(RealmeGlyphDriver.LED_ALL, curColor, 250);
-
-                Toast.makeText(this, "Сгенерирован случайный конфиг!", Toast.LENGTH_SHORT).show();
             });
         }
 
@@ -1293,7 +1294,6 @@ public class MainActivity extends Activity {
         renderQuickTriggersList();
         updateEngineControls();
         updateAllPresetsUI();
-        Toast.makeText(this, "Все значения сброшены на стандартные", Toast.LENGTH_SHORT).show();
     }
 
     private void updateStudioSpectrumUI() {
@@ -1975,7 +1975,6 @@ public class MainActivity extends Activity {
                             tvEngineStatusDesc.setText("Аудио-движок активен • Системный звук");
                             tvEngineStatusDesc.setTextColor(ThemeManager.getAccentColor(this));
                         }
-                        Toast.makeText(this, "Аудио-движок запущен", Toast.LENGTH_SHORT).show();
                     } else {
                         requestSystemAudioCapture();
                     }
@@ -1992,7 +1991,6 @@ public class MainActivity extends Activity {
                         studioSpectrumVisualizer.updateData(mAudioAnalyzer.getEmptyResult());
                     }
                     RealmeGlyphDriver.turnOffImmediate();
-                    Toast.makeText(this, "Аудио-движок остановлен", Toast.LENGTH_SHORT).show();
                 }
             });
         }
@@ -2071,7 +2069,6 @@ public class MainActivity extends Activity {
                     sAn.saveSettings(MainActivity.this);
                 }
                 updateBandGainControls();
-                Toast.makeText(MainActivity.this, isChecked ? "Минимальный порог срабатывания включен" : "Минимальный порог срабатывания выключен", Toast.LENGTH_SHORT).show();
             });
         }
 
@@ -2102,7 +2099,6 @@ public class MainActivity extends Activity {
             paletteBgColor.setOnColorSelectedListener((color, name) -> {
                 ThemeManager.setBackgroundColor(MainActivity.this, color);
                 applyThemeColors(color, ThemeManager.getAccentColor(MainActivity.this));
-                Toast.makeText(MainActivity.this, "Фон: " + name, Toast.LENGTH_SHORT).show();
             });
         }
 
@@ -2114,7 +2110,6 @@ public class MainActivity extends Activity {
                 saveTargetColor(color);
                 syncColorTargetUI();
                 RealmeGlyphDriver.flashSegment(RealmeGlyphDriver.LED_ALL, color, 400);
-                Toast.makeText(MainActivity.this, "Акцент: " + name, Toast.LENGTH_SHORT).show();
             });
         }
 
@@ -2241,13 +2236,7 @@ public class MainActivity extends Activity {
                             label,
                             icon,
                             r -> mainHandler.post(r),
-                            result -> {
-                                if (result == StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED) {
-                                    Toast.makeText(this, "Плитка «" + label + "» добавлена в шторку", Toast.LENGTH_SHORT).show();
-                                } else if (result == StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED) {
-                                    Toast.makeText(this, "Плитка «" + label + "» уже есть в шторке", Toast.LENGTH_SHORT).show();
-                                }
-                            }
+                            result -> {}
                     );
                     return;
                 }
@@ -2255,7 +2244,6 @@ public class MainActivity extends Activity {
                 Log.w(TAG, "requestAddTileService failed: " + t);
             }
         }
-        Toast.makeText(this, "Откройте шторку и перетащите плитку «" + label + "»", Toast.LENGTH_LONG).show();
     }
 
     private void selectDeviceModel(int model) {
@@ -2307,10 +2295,6 @@ public class MainActivity extends Activity {
         if (btnModelGt5 != null) {
             btnModelGt5.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
         }
-
-        String modelName = (model == DeviceModelManager.MODEL_GT_NEO_5) ? "Realme GT Neo 5" : "Realme GT 5";
-        String presetName = (targetPreset != null) ? targetPreset.name : "";
-        Toast.makeText(this, "Включен " + modelName + " — пресет: " + presetName, Toast.LENGTH_SHORT).show();
     }
 
     private void updateDeviceModelUI(int model, boolean pulseMain) {
@@ -2595,8 +2579,117 @@ public class MainActivity extends Activity {
             btnClose.setOnClickListener(v -> dialog.dismiss());
         }
 
+        String activePresetId = AudioPresetManager.getActivePresetId(this);
+        AudioPreset activePreset = AudioPresetManager.getPresetById(this, activePresetId);
+        if (activePreset != null && !activePreset.isBuiltIn) {
+            mPresetTabMode = PRESET_TAB_USER;
+        } else {
+            mPresetTabMode = PRESET_TAB_STANDARD;
+        }
+
+        TextView btnTabStandard = dialogView.findViewById(R.id.btn_preset_tab_standard);
+        TextView btnTabUser = dialogView.findViewById(R.id.btn_preset_tab_user);
+        View scrollChips = dialogView.findViewById(R.id.scroll_subgenre_chips);
+        LinearLayout layoutChips = dialogView.findViewById(R.id.layout_subgenre_chips);
         LinearLayout listContainer = dialogView.findViewById(R.id.layout_preset_picker_list);
-        populatePresetPickerList(listContainer, dialog);
+
+        float dp = getResources().getDisplayMetrics().density;
+
+        Runnable updateChipsUI = new Runnable() {
+            @Override
+            public void run() {
+                if (layoutChips == null) return;
+                layoutChips.removeAllViews();
+                List<String> chipList = new ArrayList<>();
+                chipList.add("Все");
+                chipList.addAll(GenrePresetCatalog.getAllSubgenres());
+
+                for (String genreName : chipList) {
+                    boolean isSelected = (mSelectedSubgenreFilter == null && "Все".equals(genreName))
+                            || (genreName.equals(mSelectedSubgenreFilter));
+
+                    TextView chipView = new TextView(MainActivity.this);
+                    LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.WRAP_CONTENT,
+                            LinearLayout.LayoutParams.MATCH_PARENT);
+                    lp.setMargins(0, 0, (int) (6 * dp), 0);
+                    chipView.setLayoutParams(lp);
+                    chipView.setPadding((int) (12 * dp), 0, (int) (12 * dp), 0);
+                    chipView.setGravity(Gravity.CENTER);
+                    chipView.setText(genreName);
+                    chipView.setTextSize(11);
+                    chipView.setTypeface(null, isSelected ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
+                    chipView.setTextColor(isSelected ? ThemeManager.getContrastTextColor(accent) : getColor(R.color.text_secondary));
+                    chipView.setBackground(ThemeManager.createPillDrawable(isSelected ? accent : cardBg, 12, MainActivity.this));
+                    chipView.setClickable(true);
+                    chipView.setFocusable(true);
+                    applyButtonFeedback(chipView);
+
+                    chipView.setOnClickListener(v -> {
+                        mSelectedSubgenreFilter = "Все".equals(genreName) ? null : genreName;
+                        run();
+                        populatePresetPickerList(listContainer, dialog);
+                    });
+
+                    layoutChips.addView(chipView);
+                }
+            }
+        };
+
+        Runnable updateTabsUI = () -> {
+            boolean isStd = (mPresetTabMode == PRESET_TAB_STANDARD);
+            if (btnTabStandard != null) {
+                btnTabStandard.setBackground(isStd ? ThemeManager.createPillDrawable(accent, 10, this) : null);
+                btnTabStandard.setTextColor(isStd ? ThemeManager.getContrastTextColor(accent) : getColor(R.color.text_secondary));
+            }
+            if (btnTabUser != null) {
+                btnTabUser.setBackground(!isStd ? ThemeManager.createPillDrawable(accent, 10, this) : null);
+                btnTabUser.setTextColor(!isStd ? ThemeManager.getContrastTextColor(accent) : getColor(R.color.text_secondary));
+            }
+            if (scrollChips != null) {
+                scrollChips.setVisibility(isStd ? View.VISIBLE : View.GONE);
+            }
+            populatePresetPickerList(listContainer, dialog);
+        };
+
+        if (btnTabStandard != null) {
+            applyButtonFeedback(btnTabStandard);
+            btnTabStandard.setOnClickListener(v -> {
+                mPresetTabMode = PRESET_TAB_STANDARD;
+                updateTabsUI.run();
+            });
+        }
+
+        if (btnTabUser != null) {
+            applyButtonFeedback(btnTabUser);
+            btnTabUser.setOnClickListener(v -> {
+                mPresetTabMode = PRESET_TAB_USER;
+                updateTabsUI.run();
+            });
+        }
+
+        updateChipsUI.run();
+        updateTabsUI.run();
+
+        View btnRandom = dialogView.findViewById(R.id.btn_dialog_random_preset);
+        if (btnRandom != null) {
+            btnRandom.setBackground(ThemeManager.createCardDrawable(cardBg, accent, 12, this));
+            if (btnRandom instanceof TextView) {
+                ((TextView) btnRandom).setTextColor(accent);
+            }
+            applyButtonFeedback(btnRandom);
+            btnRandom.setOnClickListener(v -> {
+                int model = DeviceModelManager.getDeviceModel(this);
+                List<AudioPreset> allPresets = AudioPresetManager.getAllPresets(this, model);
+                if (allPresets != null && !allPresets.isEmpty()) {
+                    int randIdx = new java.util.Random().nextInt(allPresets.size());
+                    AudioPreset chosen = allPresets.get(randIdx);
+                    btnRandom.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK);
+                    applyAudioPreset(chosen);
+                    dialog.dismiss();
+                }
+            });
+        }
 
         View btnAdd = dialogView.findViewById(R.id.btn_dialog_add_preset);
         if (btnAdd != null) {
@@ -2634,29 +2727,94 @@ public class MainActivity extends Activity {
         if (listContainer == null) return;
         listContainer.removeAllViews();
 
-        List<AudioPreset> list = AudioPresetManager.getAllPresets(this);
-        String activeId = AudioPresetManager.getActivePresetId(this);
+        int model = DeviceModelManager.getDeviceModel(this);
+        List<AudioPreset> rawList;
+        if (mPresetTabMode == PRESET_TAB_USER) {
+            rawList = AudioPresetManager.getUserPresets(this, model);
+        } else {
+            rawList = AudioPresetManager.getBuiltInPresets(model);
+        }
+
         float dp = getResources().getDisplayMetrics().density;
         int bgColor = ThemeManager.getBackgroundColor(this);
         int cardBg = ThemeManager.getCardBackgroundColor(bgColor);
         int cardStroke = ThemeManager.getCardStrokeColor(cardBg);
         int accent = ThemeManager.getAccentColor(this);
 
+        if (mPresetTabMode == PRESET_TAB_USER && rawList.isEmpty()) {
+            LinearLayout emptyView = new LinearLayout(this);
+            emptyView.setOrientation(LinearLayout.VERTICAL);
+            emptyView.setGravity(Gravity.CENTER);
+            emptyView.setPadding((int) (20 * dp), (int) (40 * dp), (int) (20 * dp), (int) (40 * dp));
+
+            TextView tvEmptyTitle = new TextView(this);
+            tvEmptyTitle.setText("Нет сохраненных пресетов");
+            tvEmptyTitle.setTextSize(14);
+            tvEmptyTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+            tvEmptyTitle.setTextColor(getColor(R.color.text_white));
+            tvEmptyTitle.setGravity(Gravity.CENTER);
+            emptyView.addView(tvEmptyTitle);
+
+            TextView tvEmptySub = new TextView(this);
+            tvEmptySub.setText("Сохраните текущие настройки Глиф Студии через кнопку «+ Сохранить» ниже.");
+            tvEmptySub.setTextSize(11);
+            tvEmptySub.setTextColor(getColor(R.color.text_secondary));
+            tvEmptySub.setGravity(Gravity.CENTER);
+            tvEmptySub.setPadding(0, (int) (6 * dp), 0, 0);
+            emptyView.addView(tvEmptySub);
+
+            listContainer.addView(emptyView);
+            return;
+        }
+
+        List<AudioPreset> list = new ArrayList<>();
+        if (mPresetTabMode == PRESET_TAB_STANDARD && mSelectedSubgenreFilter != null) {
+            for (AudioPreset p : rawList) {
+                if (mSelectedSubgenreFilter.equals(p.genre)) {
+                    list.add(p);
+                }
+            }
+        } else {
+            list.addAll(rawList);
+        }
+
+        String activeId = AudioPresetManager.getActivePresetId(this);
+        Set<String> favs = AudioPresetManager.getFavoritePresetIds(this);
+
+        // Sort so favorites are always at the very top of the list
+        Collections.sort(list, (a, b) -> {
+            boolean fa = favs.contains(a.id);
+            boolean fb = favs.contains(b.id);
+            if (fa && !fb) return -1;
+            if (!fa && fb) return 1;
+            return 0;
+        });
+
         for (AudioPreset p : list) {
             boolean isActive = p.id.equals(activeId);
+            boolean isFav = favs.contains(p.id);
 
             LinearLayout row = new LinearLayout(this);
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
             LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, (int) (48 * dp));
+                    LinearLayout.LayoutParams.MATCH_PARENT, (int) (52 * dp));
             rowLp.setMargins(0, 0, 0, (int) (6 * dp));
             row.setLayoutParams(rowLp);
-            row.setBackground(ThemeManager.createCardDrawable(cardBg, isActive ? accent : cardStroke, 12, this));
+            row.setBackground(ThemeManager.createCardDrawable(cardBg, isActive ? accent : (isFav ? Color.parseColor("#44FFD700") : cardStroke), 12, this));
             row.setPadding((int) (14 * dp), 0, (int) (14 * dp), 0);
             row.setClickable(true);
             row.setFocusable(true);
             applyButtonFeedback(row);
+
+            if (isFav) {
+                TextView tvStar = new TextView(this);
+                tvStar.setText("★");
+                tvStar.setTextSize(14);
+                tvStar.setTextColor(Color.parseColor("#FFD700"));
+                tvStar.setPadding(0, 0, (int) (8 * dp), 0);
+                row.addView(tvStar);
+            }
 
             LinearLayout infoCol = new LinearLayout(this);
             infoCol.setOrientation(LinearLayout.VERTICAL);
@@ -2670,10 +2828,41 @@ public class MainActivity extends Activity {
             tvName.setTextColor(isActive ? accent : getColor(R.color.text_white));
             infoCol.addView(tvName);
 
+            String modeDesc;
+            int modeColor;
+            if (p.studioAnalysisMode == AudioAnalyzer.STUDIO_MODE_DEEP) {
+                if (p.spectrumMode == AudioAnalyzer.SPECTRUM_MODE_WIDE) {
+                    modeDesc = "Глубокий 12-полосный";
+                    modeColor = Color.parseColor("#BB86FC");
+                } else {
+                    modeDesc = "Глубокий 4-полосный";
+                    modeColor = Color.parseColor("#00E5FF");
+                }
+            } else {
+                if (p.spectrumMode == AudioAnalyzer.SPECTRUM_MODE_WIDE) {
+                    modeDesc = "Простой 12-полосный";
+                    modeColor = Color.parseColor("#81C784");
+                } else {
+                    modeDesc = "Простой 4-полосный";
+                    modeColor = Color.parseColor("#FFB74D");
+                }
+            }
+
+            String badgeText;
+            if (p.name.endsWith("Бит-Трекер")) {
+                badgeText = modeDesc + " • Ритм и атака";
+            } else if (p.name.endsWith("Мелоди-Трекер")) {
+                badgeText = modeDesc + " • Вокал и синты";
+            } else if (!p.isBuiltIn) {
+                badgeText = modeDesc + " • Пользовательский";
+            } else {
+                badgeText = modeDesc + " • " + ((p.genre != null && !p.genre.isEmpty()) ? p.genre : "Стиль");
+            }
+
             TextView tvBadge = new TextView(this);
-            tvBadge.setText(p.isBuiltIn ? "Встроенный профиль" : "Пользовательский профиль");
-            tvBadge.setTextSize(10);
-            tvBadge.setTextColor(getColor(R.color.text_secondary));
+            tvBadge.setText(badgeText);
+            tvBadge.setTextColor(modeColor);
+            tvBadge.setTextSize(10.5f);
             infoCol.addView(tvBadge);
 
             row.addView(infoCol);
@@ -2684,7 +2873,21 @@ public class MainActivity extends Activity {
                 tvCheck.setTextSize(16);
                 tvCheck.setTypeface(null, android.graphics.Typeface.BOLD);
                 tvCheck.setTextColor(accent);
+                tvCheck.setPadding((int) (6 * dp), 0, (int) (6 * dp), 0);
                 row.addView(tvCheck);
+            }
+
+            if (!p.isBuiltIn) {
+                TextView btnDel = new TextView(this);
+                btnDel.setText("✕");
+                btnDel.setTextSize(13);
+                btnDel.setTextColor(getColor(R.color.text_secondary));
+                btnDel.setPadding((int) (8 * dp), (int) (6 * dp), (int) (4 * dp), (int) (6 * dp));
+                btnDel.setClickable(true);
+                btnDel.setFocusable(true);
+                applyButtonFeedback(btnDel);
+                btnDel.setOnClickListener(v -> showDeletePresetDialog(p));
+                row.addView(btnDel);
             }
 
             row.setOnClickListener(v -> {
@@ -2692,12 +2895,12 @@ public class MainActivity extends Activity {
                 dialog.dismiss();
             });
 
-            if (!p.isBuiltIn) {
-                row.setOnLongClickListener(v -> {
-                    showDeletePresetDialog(p);
-                    return true;
-                });
-            }
+            row.setOnLongClickListener(v -> {
+                AudioPresetManager.toggleFavorite(this, p.id);
+                row.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+                populatePresetPickerList(listContainer, dialog);
+                return true;
+            });
 
             listContainer.addView(row);
         }
@@ -2733,40 +2936,72 @@ public class MainActivity extends Activity {
             btnClose.setOnClickListener(v -> dialog.dismiss());
         }
 
-        // Duration buttons
-        TextView btnDur3s = dialogView.findViewById(R.id.btn_calib_dur_3s);
-        TextView btnDur5s = dialogView.findViewById(R.id.btn_calib_dur_5s);
-        TextView btnDur10s = dialogView.findViewById(R.id.btn_calib_dur_10s);
+        // Mode Switcher: Простая vs Глубокая
+        TextView btnModeSimple = dialogView.findViewById(R.id.btn_calib_mode_simple);
+        TextView btnModeDeep = dialogView.findViewById(R.id.btn_calib_mode_deep);
+        View containerSimple = dialogView.findViewById(R.id.container_calib_simple);
+        View containerDeep = dialogView.findViewById(R.id.container_calib_deep);
+        TextView tvDialogTitle = dialogView.findViewById(R.id.tv_calib_dialog_title);
 
-        final int[] durMs = {mSelectedCalibDurationMs};
+        final boolean[] isDeepMode = {false};
 
-        Runnable updateDurationUI = () -> {
-            updatePill(btnDur3s, durMs[0] == 3000);
-            updatePill(btnDur5s, durMs[0] == 5000);
-            updatePill(btnDur10s, durMs[0] == 10000);
+        // Deep Mode: Duration buttons
+        TextView btnDeepDur20s = dialogView.findViewById(R.id.btn_deep_dur_20s);
+        TextView btnDeepDur30s = dialogView.findViewById(R.id.btn_deep_dur_30s);
+        final int[] deepDurMs = {20000};
+
+        Runnable updateDeepDurUI = () -> {
+            updatePill(btnDeepDur20s, deepDurMs[0] == 20000);
+            updatePill(btnDeepDur30s, deepDurMs[0] == 30000);
         };
-        updateDurationUI.run();
+        updateDeepDurUI.run();
 
-        if (btnDur3s != null) {
-            btnDur3s.setOnClickListener(v -> {
-                durMs[0] = 3000;
-                updateDurationUI.run();
+        if (btnDeepDur20s != null) {
+            btnDeepDur20s.setOnClickListener(v -> {
+                deepDurMs[0] = 20000;
+                updateDeepDurUI.run();
             });
         }
-        if (btnDur5s != null) {
-            btnDur5s.setOnClickListener(v -> {
-                durMs[0] = 5000;
-                updateDurationUI.run();
-            });
-        }
-        if (btnDur10s != null) {
-            btnDur10s.setOnClickListener(v -> {
-                durMs[0] = 10000;
-                updateDurationUI.run();
+        if (btnDeepDur30s != null) {
+            btnDeepDur30s.setOnClickListener(v -> {
+                deepDurMs[0] = 30000;
+                updateDeepDurUI.run();
             });
         }
 
-        // Switches
+
+
+        // Action button start reference
+        View btnStart = dialogView.findViewById(R.id.btn_dialog_start_calib);
+
+        Runnable updateTabsUI = () -> {
+            updatePill(btnModeSimple, !isDeepMode[0]);
+            updatePill(btnModeDeep, isDeepMode[0]);
+            if (containerSimple != null) containerSimple.setVisibility(isDeepMode[0] ? View.GONE : View.VISIBLE);
+            if (containerDeep != null) containerDeep.setVisibility(isDeepMode[0] ? View.VISIBLE : View.GONE);
+            if (btnStart instanceof TextView) {
+                ((TextView) btnStart).setText(isDeepMode[0] ? "Запустить глубокий замер" : "Запустить замер");
+            }
+            if (tvDialogTitle != null) {
+                tvDialogTitle.setText(isDeepMode[0] ? "Глубокий анализ 12 полос" : "Адаптация под текущую музыку");
+            }
+        };
+        updateTabsUI.run();
+
+        if (btnModeSimple != null) {
+            btnModeSimple.setOnClickListener(v -> {
+                isDeepMode[0] = false;
+                updateTabsUI.run();
+            });
+        }
+        if (btnModeDeep != null) {
+            btnModeDeep.setOnClickListener(v -> {
+                isDeepMode[0] = true;
+                updateTabsUI.run();
+            });
+        }
+
+        // Switches for Simple Mode
         ModernSwitch switchGains = dialogView.findViewById(R.id.switch_calib_gains);
         ModernSwitch switchThresh = dialogView.findViewById(R.id.switch_calib_thresholds);
         ModernSwitch switchSens = dialogView.findViewById(R.id.switch_calib_sens);
@@ -2786,7 +3021,6 @@ public class MainActivity extends Activity {
             btnCancel.setOnClickListener(v -> dialog.dismiss());
         }
 
-        View btnStart = dialogView.findViewById(R.id.btn_dialog_start_calib);
         if (btnStart != null) {
             btnStart.setBackground(ThemeManager.createPillDrawable(accent, 14, this));
             if (btnStart instanceof TextView) {
@@ -2794,27 +3028,87 @@ public class MainActivity extends Activity {
             }
             applyButtonFeedback(btnStart);
             btnStart.setOnClickListener(v -> {
-                mSelectedCalibDurationMs = durMs[0];
-                boolean calibG = (switchGains == null || switchGains.isChecked());
-                boolean calibT = (switchThresh == null || switchThresh.isChecked());
-                boolean calibS = (switchSens == null || switchSens.isChecked());
-                boolean calibL = (switchLoud == null || switchLoud.isChecked());
-                boolean calibD = (switchDecay == null || switchDecay.isChecked());
-                boolean calibMH = (switchMinHold == null || switchMinHold.isChecked());
-
                 dialog.dismiss();
-                startCalibrationProcess(durMs[0], calibG, calibT, calibS, calibL, calibD, calibMH);
+                if (isDeepMode[0]) {
+                    startDeepCalibrationProcess(deepDurMs[0], AudioAnalyzer.STYLE_AUTO);
+                } else {
+                    boolean calibG = (switchGains == null || switchGains.isChecked());
+                    boolean calibT = (switchThresh == null || switchThresh.isChecked());
+                    boolean calibS = (switchSens == null || switchSens.isChecked());
+                    boolean calibL = (switchLoud == null || switchLoud.isChecked());
+                    boolean calibD = (switchDecay == null || switchDecay.isChecked());
+                    boolean calibMH = (switchMinHold == null || switchMinHold.isChecked());
+                    startCalibrationProcess(10000, calibG, calibT, calibS, calibL, calibD, calibMH);
+                }
             });
         }
 
         dialog.show();
     }
 
+    private void startDeepCalibrationProcess(int durationMs, int patternStyleIndex) {
+        if (!PulseAudioService.isRunning()) {
+            return;
+        }
+
+        if (btnAutoCalibrate != null) {
+            btnAutoCalibrate.setEnabled(false);
+            btnAutoCalibrate.setText("Глубокая калибровка...");
+        }
+
+        AudioAnalyzer.CalibrationCallback cb = new AudioAnalyzer.CalibrationCallback() {
+            @Override
+            public void onCalibrationProgress(int secondsRemaining) {
+                runOnUiThread(() -> {
+                    if (btnAutoCalibrate != null) {
+                        btnAutoCalibrate.setText("Замер: " + secondsRemaining + "с");
+                    }
+                });
+            }
+
+            @Override
+            public void onCalibrationStage(int stage, String stageTitle, int secondsRemaining) {
+                runOnUiThread(() -> {
+                    if (btnAutoCalibrate != null) {
+                        btnAutoCalibrate.setText(stageTitle + " • " + secondsRemaining + "с");
+                    }
+                });
+            }
+
+            @Override
+            public void onCalibrationComplete() {
+                runOnUiThread(() -> {
+                    if (mAudioAnalyzer != null) {
+                        mAudioAnalyzer.loadSettings(MainActivity.this);
+                    }
+                    if (studioSpectrumVisualizer != null) {
+                        studioSpectrumVisualizer.setSpectrumMode(AudioAnalyzer.SPECTRUM_MODE_WIDE);
+                        for (int i = 0; i < 12; i++) {
+                            studioSpectrumVisualizer.setBandEnabled(i, true, mAudioAnalyzer.isWideBandEnabled(i));
+                        }
+                    }
+                    mSelectedBandIndex = 0;
+                    mSelectedBandIsWide = true;
+                    updateStudioSpectrumUI();
+                    updateBandGainControls();
+                    updateBandPatternButtonsUI();
+                    updateEngineControls();
+                    updateHoldTimesUI();
+                    if (btnAutoCalibrate != null) {
+                        btnAutoCalibrate.setEnabled(true);
+                        btnAutoCalibrate.setText("Автокалибровка");
+                    }
+                });
+            }
+        };
+
+        PulseAudioService.startDeepAutoCalibration(durationMs, patternStyleIndex, cb);
+    }
+
     private void startCalibrationProcess(int durationMs, boolean calibGains, boolean calibThresholds,
                                          boolean calibSens, boolean calibLoudness, boolean calibDecay,
                                          boolean calibMinHold) {
         if (!PulseAudioService.isRunning()) {
-            Toast.makeText(this, "Включите аудио-движок и воспроизведение музыки", Toast.LENGTH_LONG).show();
             return;
         }
 
@@ -2848,7 +3142,6 @@ public class MainActivity extends Activity {
                         btnAutoCalibrate.setEnabled(true);
                         btnAutoCalibrate.setText("Автокалибровка");
                     }
-                    Toast.makeText(MainActivity.this, "Автокалибровка успешно завершена", Toast.LENGTH_SHORT).show();
                 });
             }
         };
@@ -2911,7 +3204,6 @@ public class MainActivity extends Activity {
         updatePresetDropdownUI();
         updateHoldTimesUI();
         syncBluetoothDelayUI();
-        Toast.makeText(this, "Применен пресет: " + preset.name, Toast.LENGTH_SHORT).show();
     }
 
     private void updateAllPresetsUI() {
@@ -2949,6 +3241,7 @@ public class MainActivity extends Activity {
                     String id = "user_" + System.currentTimeMillis();
                     AudioPreset newPreset = mAudioAnalyzer.exportCurrentAsPreset(id, name);
                     AudioPresetManager.saveUserPreset(this, newPreset);
+                    mPresetTabMode = PRESET_TAB_USER;
                     applyAudioPreset(newPreset);
                 })
                 .setNegativeButton("Отмена", null)
@@ -2967,7 +3260,12 @@ public class MainActivity extends Activity {
                     } else {
                         updateAllPresetsUI();
                     }
-                    Toast.makeText(this, "Пресет удален", Toast.LENGTH_SHORT).show();
+                    if (mCurrentPresetDialog != null && mCurrentPresetDialog.isShowing()) {
+                        LinearLayout listContainer = mCurrentPresetDialog.findViewById(R.id.layout_preset_picker_list);
+                        if (listContainer != null) {
+                            populatePresetPickerList(listContainer, mCurrentPresetDialog);
+                        }
+                    }
                 })
                 .setNegativeButton("Отмена", null)
                 .show();
@@ -2987,7 +3285,6 @@ public class MainActivity extends Activity {
         if (clipboard != null) {
             ClipData clip = ClipData.newPlainText("PulseLight Preset", json);
             clipboard.setPrimaryClip(clip);
-            Toast.makeText(this, "Пресет «" + preset.name + "» скопирован в буфер", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -3033,15 +3330,12 @@ public class MainActivity extends Activity {
                 .setPositiveButton("Импортировать", (dialog, which) -> {
                     String input = et.getText().toString().trim();
                     if (input.isEmpty()) {
-                        Toast.makeText(MainActivity.this, "Поле пустое", Toast.LENGTH_SHORT).show();
                         return;
                     }
                     AudioPreset imported = AudioPresetManager.importPresetFromJson(MainActivity.this, input);
                     if (imported != null) {
+                        mPresetTabMode = PRESET_TAB_USER;
                         applyAudioPreset(imported);
-                        Toast.makeText(MainActivity.this, "Пресет «" + imported.name + "» импортирован", Toast.LENGTH_SHORT).show();
-                    } else {
-                        Toast.makeText(MainActivity.this, "Ошибка: некорректный JSON формат", Toast.LENGTH_LONG).show();
                     }
                 })
                 .setNegativeButton("Отмена", null)
@@ -3130,7 +3424,6 @@ public class MainActivity extends Activity {
                     tvEngineStatusDesc.setText("Аудио-движок активен • Системный звук");
                     tvEngineStatusDesc.setTextColor(ThemeManager.getAccentColor(this));
                 }
-                Toast.makeText(this, "Захват системного звука активирован", Toast.LENGTH_SHORT).show();
             } else {
                 mIsUpdatingEngineUI = true;
                 if (switchAudioEngine != null) {
@@ -3138,7 +3431,6 @@ public class MainActivity extends Activity {
                 }
                 mIsUpdatingEngineUI = false;
                 AudioAnalyzer.setEngineEnabled(this, false);
-                Toast.makeText(this, "Требуется разрешение для захвата звука", Toast.LENGTH_SHORT).show();
             }
         }
     }

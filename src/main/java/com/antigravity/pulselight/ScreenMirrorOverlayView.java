@@ -147,9 +147,9 @@ public class ScreenMirrorOverlayView extends View {
             if (colorTop != 0) mColorTop = colorTop;
         }
         if ((mask & RealmeGlyphDriver.LED_B) != 0) {
-            if (mAnimRight != null) { mAnimRight.cancel(); mAnimRight = null; }
-            mIntensityRight = val;
-            if (colorRight != 0) mColorRight = colorRight;
+            if (mAnimLeft != null) { mAnimLeft.cancel(); mAnimLeft = null; }
+            mIntensityLeft = val;
+            if (colorRight != 0) mColorLeft = colorRight;
         }
         if ((mask & RealmeGlyphDriver.LED_C) != 0) {
             if (mAnimBottom != null) { mAnimBottom.cancel(); mAnimBottom = null; }
@@ -157,9 +157,9 @@ public class ScreenMirrorOverlayView extends View {
             if (colorBottom != 0) mColorBottom = colorBottom;
         }
         if ((mask & RealmeGlyphDriver.LED_D) != 0) {
-            if (mAnimLeft != null) { mAnimLeft.cancel(); mAnimLeft = null; }
-            mIntensityLeft = val;
-            if (colorLeft != 0) mColorLeft = colorLeft;
+            if (mAnimRight != null) { mAnimRight.cancel(); mAnimRight = null; }
+            mIntensityRight = val;
+            if (colorLeft != 0) mColorRight = colorLeft;
         }
         postInvalidateOnAnimation();
     }
@@ -184,15 +184,15 @@ public class ScreenMirrorOverlayView extends View {
             });
             mAnimTop.start();
         } else if (segment == RealmeGlyphDriver.LED_B) {
-            if (mAnimRight != null) mAnimRight.cancel();
-            mAnimRight = ValueAnimator.ofFloat(mIntensityRight, targetIntensity);
-            mAnimRight.setDuration(effDuration);
-            mAnimRight.setInterpolator(new DecelerateInterpolator());
-            mAnimRight.addUpdateListener(a -> {
-                mIntensityRight = (float) a.getAnimatedValue();
+            if (mAnimLeft != null) mAnimLeft.cancel();
+            mAnimLeft = ValueAnimator.ofFloat(mIntensityLeft, targetIntensity);
+            mAnimLeft.setDuration(effDuration);
+            mAnimLeft.setInterpolator(new DecelerateInterpolator());
+            mAnimLeft.addUpdateListener(a -> {
+                mIntensityLeft = (float) a.getAnimatedValue();
                 postInvalidateOnAnimation();
             });
-            mAnimRight.start();
+            mAnimLeft.start();
         } else if (segment == RealmeGlyphDriver.LED_C) {
             if (mAnimBottom != null) mAnimBottom.cancel();
             mAnimBottom = ValueAnimator.ofFloat(mIntensityBottom, targetIntensity);
@@ -204,15 +204,15 @@ public class ScreenMirrorOverlayView extends View {
             });
             mAnimBottom.start();
         } else if (segment == RealmeGlyphDriver.LED_D) {
-            if (mAnimLeft != null) mAnimLeft.cancel();
-            mAnimLeft = ValueAnimator.ofFloat(mIntensityLeft, targetIntensity);
-            mAnimLeft.setDuration(effDuration);
-            mAnimLeft.setInterpolator(new DecelerateInterpolator());
-            mAnimLeft.addUpdateListener(a -> {
-                mIntensityLeft = (float) a.getAnimatedValue();
+            if (mAnimRight != null) mAnimRight.cancel();
+            mAnimRight = ValueAnimator.ofFloat(mIntensityRight, targetIntensity);
+            mAnimRight.setDuration(effDuration);
+            mAnimRight.setInterpolator(new DecelerateInterpolator());
+            mAnimRight.addUpdateListener(a -> {
+                mIntensityRight = (float) a.getAnimatedValue();
                 postInvalidateOnAnimation();
             });
-            mAnimLeft.start();
+            mAnimRight.start();
         }
     }
 

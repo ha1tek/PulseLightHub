@@ -38,6 +38,7 @@ public class SpectrumVisualizerView extends View {
     private static final String[] WIDE_LABELS = new String[]{"30", "60", "120", "250", "500", "1k", "2k", "4k", "6k", "9k", "12k", "16k"};
 
     private int mSelectedBand = 0;
+    private float mVisualGain = 1.0f;
 
     // Drawing objects
     private Paint mBarPaint;
@@ -138,6 +139,15 @@ public class SpectrumVisualizerView extends View {
             mCurvePaint.setColor(color);
             postInvalidateOnAnimation();
         }
+    }
+
+    public void setVisualGain(float gain) {
+        mVisualGain = Math.max(0.2f, Math.min(4.0f, gain));
+        postInvalidateOnAnimation();
+    }
+
+    public float getVisualGain() {
+        return mVisualGain;
     }
 
     public void updateData(AudioAnalyzer.AnalysisResult result) {
@@ -259,7 +269,8 @@ public class SpectrumVisualizerView extends View {
             float cx = startX + i * stepX + barWidth / 2f;
             float barLeft = cx - barWidth / 2f;
             float barRight = cx + barWidth / 2f;
-            float barTop = barBottom - (levels[i] * barMaxHeight);
+            float scaledLevel = Math.max(0f, Math.min(1f, levels[i] * mVisualGain));
+            float barTop = barBottom - (scaledLevel * barMaxHeight);
 
             curveX[i] = cx;
             curveY[i] = Math.max(16f, barTop);
@@ -278,7 +289,7 @@ public class SpectrumVisualizerView extends View {
             mBarRect.set(barLeft, barBottom - barMaxHeight, barRight, barBottom);
             canvas.drawRoundRect(mBarRect, 6f * density, 6f * density, mBgBarPaint);
 
-            if (levels[i] > 0.02f) {
+            if (scaledLevel > 0.02f) {
                 mBarRect.set(barLeft, barTop, barRight, barBottom);
                 canvas.drawRoundRect(mBarRect, 6f * density, 6f * density, mBarPaint);
             }

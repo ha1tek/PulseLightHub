@@ -80,10 +80,67 @@ public class ThemeManager {
         return sp.getInt(KEY_ACCENT_COLOR, ACCENT_OPTIONS[0].color);
     }
 
+    private static final String[] ALIAS_CLASSES = {
+            "com.antigravity.pulselight.MainActivityLime",
+            "com.antigravity.pulselight.MainActivityCyan",
+            "com.antigravity.pulselight.MainActivityEmerald",
+            "com.antigravity.pulselight.MainActivityAmber",
+            "com.antigravity.pulselight.MainActivityRed",
+            "com.antigravity.pulselight.MainActivityPurple",
+            "com.antigravity.pulselight.MainActivityWhite",
+            "com.antigravity.pulselight.MainActivityPink"
+    };
+
+    private static final int[] ALIAS_COLORS = {
+            0xFFCCFF00,
+            0xFF00F0FF,
+            0xFF10B981,
+            0xFFF59E0B,
+            0xFFFF3B30,
+            0xFFA855F7,
+            0xFFF8FAFC,
+            0xFFFF2E93
+    };
+
+    public static void updateAppIcon(Context context, int accentColor) {
+        if (context == null) return;
+        int targetIndex = 0;
+        for (int i = 0; i < ALIAS_COLORS.length; i++) {
+            if (ALIAS_COLORS[i] == accentColor) {
+                targetIndex = i;
+                break;
+            }
+        }
+
+        try {
+            android.content.pm.PackageManager pm = context.getPackageManager();
+            String targetAlias = ALIAS_CLASSES[targetIndex];
+            android.content.ComponentName targetComp = new android.content.ComponentName(context, targetAlias);
+            int currentStatus = pm.getComponentEnabledSetting(targetComp);
+            if (currentStatus == android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED) {
+                return;
+            }
+
+            pm.setComponentEnabledSetting(targetComp,
+                    android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                    android.content.pm.PackageManager.DONT_KILL_APP);
+
+            for (int i = 0; i < ALIAS_CLASSES.length; i++) {
+                if (i != targetIndex) {
+                    android.content.ComponentName otherComp = new android.content.ComponentName(context, ALIAS_CLASSES[i]);
+                    pm.setComponentEnabledSetting(otherComp,
+                            android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                            android.content.pm.PackageManager.DONT_KILL_APP);
+                }
+            }
+        } catch (Throwable ignored) {}
+    }
+
     public static void setAccentColor(Context context, int color) {
         if (context == null) return;
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 .edit().putInt(KEY_ACCENT_COLOR, color).apply();
+        updateAppIcon(context, color);
         notifyListeners(getBackgroundColor(context), color);
     }
 

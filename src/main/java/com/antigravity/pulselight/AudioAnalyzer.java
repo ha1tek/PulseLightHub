@@ -30,7 +30,7 @@ public class AudioAnalyzer {
     public static final int QUICK_PRESET_TOP_VOCAL = 10;
     public static final int QUICK_PRESET_CLOCKWISE_WAVE = 11;
 
-    // 11 Glyph Trigger Patterns + OFF
+    // 18 Glyph Trigger Patterns + OFF
     public static final int PATTERN_OFF = -1;             // No LEDs
     public static final int PATTERN_TOP = 0;              // LED_A
     public static final int PATTERN_BOTTOM = 1;           // LED_C
@@ -42,12 +42,22 @@ public class AudioAnalyzer {
     public static final int PATTERN_TOP_RIGHT = 7;        // LED_A | LED_B
     public static final int PATTERN_BOTTOM_LEFT = 8;      // LED_C | LED_D
     public static final int PATTERN_BOTTOM_RIGHT = 9;     // LED_C | LED_B
-    public static final int PATTERN_ALL = 10;              // All LEDs (LED_ALL)
+    public static final int PATTERN_ALL = 10;             // All LEDs (LED_ALL)
+    public static final int PATTERN_TOP_OR_BOTTOM = 11;   // Alternating LED_A or LED_C
+    public static final int PATTERN_LEFT_OR_RIGHT = 12;   // Alternating LED_D or LED_B
+    public static final int PATTERN_TOP_OR_LEFT = 13;     // Alternating LED_A or LED_D
+    public static final int PATTERN_TOP_OR_RIGHT = 14;    // Alternating LED_A or LED_B
+    public static final int PATTERN_BOTTOM_OR_LEFT = 15;  // Alternating LED_C or LED_D
+    public static final int PATTERN_BOTTOM_OR_RIGHT = 16; // Alternating LED_C or LED_B
+    public static final int PATTERN_RANDOM_SINGLE = 17;   // Random single LED (LED_A, B, C, D)
+    public static final int PATTERN_RANDOM_PATTERN = 18;  // Random trigger pattern from available patterns (except random single)
     public static final int PATTERN_COLOR_CYCLE = 20;     // For GT Neo 5: Switches / cycles color on beat
     public static final int PATTERN_FLASH_AND_COLOR_CYCLE = 21; // For GT Neo 5: Flashes glyph and switches color on beat
 
     private static final String PREFS_NAME = "pulse_audio_engine";
     private static final String KEY_SENSITIVITY = "sensitivity_multiplier";
+    private static final String KEY_NARROW_OR_RANDOM_PREFIX = "narrow_or_random_";
+    private static final String KEY_WIDE_OR_RANDOM_PREFIX = "wide_or_random_";
     private static final String KEY_DECAY_MS = "decay_ms";
     private static final String KEY_ENGINE_ENABLED = "engine_enabled";
     private static final String KEY_SPECTRUM_MODE = "spectrum_mode";
@@ -161,6 +171,35 @@ public class AudioAnalyzer {
     };
     private final boolean[] mWideEnabled = new boolean[]{true, true, true, true, true, true, true, true, true, true, true, true};
     private final boolean[] mWideColorCycle = new boolean[WIDE_BANDS_COUNT];
+
+    // Dynamic Alternating ("Or") and Random Pattern States
+    private final boolean[] mNarrowToggle = new boolean[NARROW_BANDS_COUNT];
+    private final boolean[] mWideToggle = new boolean[WIDE_BANDS_COUNT];
+    private final int[] mNarrowActiveMask = new int[NARROW_BANDS_COUNT];
+    private final int[] mWideActiveMask = new int[WIDE_BANDS_COUNT];
+    private final boolean[] mNarrowOrRandom = new boolean[]{true, true, true, true};
+    private final boolean[] mWideOrRandom = new boolean[]{true, true, true, true, true, true, true, true, true, true, true, true};
+    private final java.util.Random mPatternRnd = new java.util.Random();
+
+    private static final int[] RANDOM_PATTERN_POOL = {
+            PATTERN_TOP,
+            PATTERN_BOTTOM,
+            PATTERN_LEFT,
+            PATTERN_RIGHT,
+            PATTERN_TOP_BOTTOM,
+            PATTERN_LEFT_RIGHT,
+            PATTERN_TOP_LEFT,
+            PATTERN_TOP_RIGHT,
+            PATTERN_BOTTOM_LEFT,
+            PATTERN_BOTTOM_RIGHT,
+            PATTERN_ALL,
+            PATTERN_TOP_OR_BOTTOM,
+            PATTERN_LEFT_OR_RIGHT,
+            PATTERN_TOP_OR_LEFT,
+            PATTERN_TOP_OR_RIGHT,
+            PATTERN_BOTTOM_OR_LEFT,
+            PATTERN_BOTTOM_OR_RIGHT
+    };
 
     // Стадии многоэтапной глубокой калибровки
     public static final int CALIB_STAGE_IDLE = 0;
@@ -409,6 +448,7 @@ public class AudioAnalyzer {
             mNarrowThresholds[i] = sp.getFloat(KEY_NARROW_THRESH_PREFIX + i, 0.15f);
             mNarrowEnabled[i] = sp.getBoolean(KEY_NARROW_ENABLED_PREFIX + i, true);
             mNarrowColorCycle[i] = sp.getBoolean(KEY_NARROW_COLOR_CYCLE_PREFIX + i, false);
+            mNarrowOrRandom[i] = sp.getBoolean(KEY_NARROW_OR_RANDOM_PREFIX + i, true);
         }
 
         int[] defWidePatterns = {
@@ -422,6 +462,7 @@ public class AudioAnalyzer {
             mWideThresholds[i] = sp.getFloat(KEY_WIDE_THRESH_PREFIX + i, 0.15f);
             mWideEnabled[i] = sp.getBoolean(KEY_WIDE_ENABLED_PREFIX + i, true);
             mWideColorCycle[i] = sp.getBoolean(KEY_WIDE_COLOR_CYCLE_PREFIX + i, false);
+            mWideOrRandom[i] = sp.getBoolean(KEY_WIDE_OR_RANDOM_PREFIX + i, true);
         }
     }
 
@@ -591,6 +632,7 @@ public class AudioAnalyzer {
             ed.putFloat(KEY_NARROW_THRESH_PREFIX + i, mNarrowThresholds[i]);
             ed.putBoolean(KEY_NARROW_ENABLED_PREFIX + i, mNarrowEnabled[i]);
             ed.putBoolean(KEY_NARROW_COLOR_CYCLE_PREFIX + i, mNarrowColorCycle[i]);
+            ed.putBoolean(KEY_NARROW_OR_RANDOM_PREFIX + i, mNarrowOrRandom[i]);
         }
         for (int i = 0; i < WIDE_BANDS_COUNT; i++) {
             ed.putFloat(KEY_WIDE_GAIN_PREFIX + i, mWideGains[i]);
@@ -598,6 +640,7 @@ public class AudioAnalyzer {
             ed.putFloat(KEY_WIDE_THRESH_PREFIX + i, mWideThresholds[i]);
             ed.putBoolean(KEY_WIDE_ENABLED_PREFIX + i, mWideEnabled[i]);
             ed.putBoolean(KEY_WIDE_COLOR_CYCLE_PREFIX + i, mWideColorCycle[i]);
+            ed.putBoolean(KEY_WIDE_OR_RANDOM_PREFIX + i, mWideOrRandom[i]);
         }
         ed.apply();
         PulseAudioService.reloadSettings(context);
@@ -619,17 +662,154 @@ public class AudioAnalyzer {
             case PATTERN_BOTTOM: return RealmeGlyphDriver.LED_C;
             case PATTERN_LEFT: return RealmeGlyphDriver.LED_D;
             case PATTERN_RIGHT: return RealmeGlyphDriver.LED_B;
+            case PATTERN_TOP_BOTTOM:
+            case PATTERN_TOP_OR_BOTTOM:
+                return RealmeGlyphDriver.LED_A | RealmeGlyphDriver.LED_C;
+            case PATTERN_LEFT_RIGHT:
+            case PATTERN_LEFT_OR_RIGHT:
+                return RealmeGlyphDriver.LED_D | RealmeGlyphDriver.LED_B;
+            case PATTERN_TOP_LEFT:
+            case PATTERN_TOP_OR_LEFT:
+                return RealmeGlyphDriver.LED_A | RealmeGlyphDriver.LED_D;
+            case PATTERN_TOP_RIGHT:
+            case PATTERN_TOP_OR_RIGHT:
+                return RealmeGlyphDriver.LED_A | RealmeGlyphDriver.LED_B;
+            case PATTERN_BOTTOM_LEFT:
+            case PATTERN_BOTTOM_OR_LEFT:
+                return RealmeGlyphDriver.LED_C | RealmeGlyphDriver.LED_D;
+            case PATTERN_BOTTOM_RIGHT:
+            case PATTERN_BOTTOM_OR_RIGHT:
+                return RealmeGlyphDriver.LED_C | RealmeGlyphDriver.LED_B;
+            case PATTERN_RANDOM_SINGLE:
+            case PATTERN_RANDOM_PATTERN:
+            case PATTERN_ALL:
+            case PATTERN_FLASH_AND_COLOR_CYCLE:
+                return RealmeGlyphDriver.LED_ALL;
+            case PATTERN_OFF:
+            default: return 0;
+        }
+    }
+
+    private int resolvePatternMask(int pattern, boolean isWide, int bandIndex) {
+        boolean isRandomOr = isWide ? mWideOrRandom[bandIndex] : mNarrowOrRandom[bandIndex];
+        boolean[] toggle = isWide ? mWideToggle : mNarrowToggle;
+
+        switch (pattern) {
+            case PATTERN_TOP: return RealmeGlyphDriver.LED_A;
+            case PATTERN_BOTTOM: return RealmeGlyphDriver.LED_C;
+            case PATTERN_LEFT: return RealmeGlyphDriver.LED_D;
+            case PATTERN_RIGHT: return RealmeGlyphDriver.LED_B;
             case PATTERN_TOP_BOTTOM: return RealmeGlyphDriver.LED_A | RealmeGlyphDriver.LED_C;
             case PATTERN_LEFT_RIGHT: return RealmeGlyphDriver.LED_D | RealmeGlyphDriver.LED_B;
             case PATTERN_TOP_LEFT: return RealmeGlyphDriver.LED_A | RealmeGlyphDriver.LED_D;
             case PATTERN_TOP_RIGHT: return RealmeGlyphDriver.LED_A | RealmeGlyphDriver.LED_B;
             case PATTERN_BOTTOM_LEFT: return RealmeGlyphDriver.LED_C | RealmeGlyphDriver.LED_D;
             case PATTERN_BOTTOM_RIGHT: return RealmeGlyphDriver.LED_C | RealmeGlyphDriver.LED_B;
-            case PATTERN_ALL:
-            case PATTERN_FLASH_AND_COLOR_CYCLE:
+            case PATTERN_ALL: return RealmeGlyphDriver.LED_ALL;
+
+            case PATTERN_TOP_OR_BOTTOM:
+                if (isRandomOr) {
+                    return mPatternRnd.nextBoolean() ? RealmeGlyphDriver.LED_A : RealmeGlyphDriver.LED_C;
+                } else {
+                    toggle[bandIndex] = !toggle[bandIndex];
+                    return toggle[bandIndex] ? RealmeGlyphDriver.LED_A : RealmeGlyphDriver.LED_C;
+                }
+
+            case PATTERN_LEFT_OR_RIGHT:
+                if (isRandomOr) {
+                    return mPatternRnd.nextBoolean() ? RealmeGlyphDriver.LED_D : RealmeGlyphDriver.LED_B;
+                } else {
+                    toggle[bandIndex] = !toggle[bandIndex];
+                    return toggle[bandIndex] ? RealmeGlyphDriver.LED_D : RealmeGlyphDriver.LED_B;
+                }
+
+            case PATTERN_TOP_OR_LEFT:
+                if (isRandomOr) {
+                    return mPatternRnd.nextBoolean() ? RealmeGlyphDriver.LED_A : RealmeGlyphDriver.LED_D;
+                } else {
+                    toggle[bandIndex] = !toggle[bandIndex];
+                    return toggle[bandIndex] ? RealmeGlyphDriver.LED_A : RealmeGlyphDriver.LED_D;
+                }
+
+            case PATTERN_TOP_OR_RIGHT:
+                if (isRandomOr) {
+                    return mPatternRnd.nextBoolean() ? RealmeGlyphDriver.LED_A : RealmeGlyphDriver.LED_B;
+                } else {
+                    toggle[bandIndex] = !toggle[bandIndex];
+                    return toggle[bandIndex] ? RealmeGlyphDriver.LED_A : RealmeGlyphDriver.LED_B;
+                }
+
+            case PATTERN_BOTTOM_OR_LEFT:
+                if (isRandomOr) {
+                    return mPatternRnd.nextBoolean() ? RealmeGlyphDriver.LED_C : RealmeGlyphDriver.LED_D;
+                } else {
+                    toggle[bandIndex] = !toggle[bandIndex];
+                    return toggle[bandIndex] ? RealmeGlyphDriver.LED_C : RealmeGlyphDriver.LED_D;
+                }
+
+            case PATTERN_BOTTOM_OR_RIGHT:
+                if (isRandomOr) {
+                    return mPatternRnd.nextBoolean() ? RealmeGlyphDriver.LED_C : RealmeGlyphDriver.LED_B;
+                } else {
+                    toggle[bandIndex] = !toggle[bandIndex];
+                    return toggle[bandIndex] ? RealmeGlyphDriver.LED_C : RealmeGlyphDriver.LED_B;
+                }
+
+            default:
                 return RealmeGlyphDriver.LED_ALL;
-            case PATTERN_OFF:
-            default: return 0;
+        }
+    }
+
+    private int updateActiveBandMask(int pattern, boolean isHit, boolean isWide, int bandIndex) {
+        if (pattern == PATTERN_OFF) return 0;
+        if (pattern == PATTERN_ALL || pattern == PATTERN_FLASH_AND_COLOR_CYCLE) return RealmeGlyphDriver.LED_ALL;
+
+        int[] activeMasks = isWide ? mWideActiveMask : mNarrowActiveMask;
+
+        if (pattern == PATTERN_RANDOM_SINGLE) {
+            if (isHit) {
+                int[] all4 = { RealmeGlyphDriver.LED_A, RealmeGlyphDriver.LED_B, RealmeGlyphDriver.LED_C, RealmeGlyphDriver.LED_D };
+                activeMasks[bandIndex] = all4[mPatternRnd.nextInt(4)];
+            }
+            if (activeMasks[bandIndex] == 0) activeMasks[bandIndex] = RealmeGlyphDriver.LED_A;
+            return activeMasks[bandIndex];
+        }
+
+        if (pattern == PATTERN_RANDOM_PATTERN) {
+            if (isHit) {
+                int picked = RANDOM_PATTERN_POOL[mPatternRnd.nextInt(RANDOM_PATTERN_POOL.length)];
+                activeMasks[bandIndex] = resolvePatternMask(picked, isWide, bandIndex);
+            }
+            if (activeMasks[bandIndex] == 0) activeMasks[bandIndex] = RealmeGlyphDriver.LED_ALL;
+            return activeMasks[bandIndex];
+        }
+
+        if (isHit) {
+            activeMasks[bandIndex] = resolvePatternMask(pattern, isWide, bandIndex);
+        }
+        if (activeMasks[bandIndex] == 0) {
+            activeMasks[bandIndex] = resolvePatternMask(pattern, isWide, bandIndex);
+        }
+        return activeMasks[bandIndex];
+    }
+
+    public boolean isNarrowOrRandom(int index) {
+        return (index >= 0 && index < NARROW_BANDS_COUNT) ? mNarrowOrRandom[index] : true;
+    }
+
+    public void setNarrowOrRandom(int index, boolean random) {
+        if (index >= 0 && index < NARROW_BANDS_COUNT) {
+            mNarrowOrRandom[index] = random;
+        }
+    }
+
+    public boolean isWideOrRandom(int index) {
+        return (index >= 0 && index < WIDE_BANDS_COUNT) ? mWideOrRandom[index] : true;
+    }
+
+    public void setWideOrRandom(int index, boolean random) {
+        if (index >= 0 && index < WIDE_BANDS_COUNT) {
+            mWideOrRandom[index] = random;
         }
     }
 
@@ -780,6 +960,10 @@ public class AudioAnalyzer {
         if (context != null) {
             context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                     .edit().putFloat(KEY_SPECTRUM_VISUAL_GAIN, mSpectrumVisualGain).apply();
+        }
+        AudioAnalyzer serviceAnalyzer = PulseAudioService.getAnalyzer();
+        if (serviceAnalyzer != null && serviceAnalyzer != this) {
+            serviceAnalyzer.mSpectrumVisualGain = mSpectrumVisualGain;
         }
     }
 
@@ -1026,6 +1210,10 @@ public class AudioAnalyzer {
         // Аппаратная симметрия паттернов Realme GT 5:
         // LED_A - верх, LED_B - право, LED_C - низ, LED_D - лево.
         // Полоса 0 Sub 20-80 Гц: PATTERN_BOTTOM низ LED_C или PATTERN_ALL при сильном доминировании саба
+        for (int i = 0; i < NARROW_BANDS_COUNT; i++) {
+            mNarrowOrRandom[i] = true;
+        }
+
         if (narrowP90[0] < 0.015f) {
             mNarrowPatterns[0] = PATTERN_OFF;
         } else if (narrowP90[0] > narrowP90[1] * 1.25f) {
@@ -1034,18 +1222,24 @@ public class AudioAnalyzer {
             mNarrowPatterns[0] = PATTERN_BOTTOM;
         }
 
-        // Полоса 1 Kick 80-200 Гц: PATTERN_TOP_BOTTOM вертикальный столб LED_A | LED_C
+        // Полоса 1 Kick 80-200 Гц: PATTERN_TOP_OR_BOTTOM вертикальная динамическая ось
         if (narrowP90[1] < 0.015f) {
             mNarrowPatterns[1] = PATTERN_OFF;
         } else {
-            mNarrowPatterns[1] = PATTERN_TOP_BOTTOM;
+            mNarrowPatterns[1] = PATTERN_TOP_OR_BOTTOM;
         }
 
-        // Полоса 2 Snare 200-3500 Гц: PATTERN_LEFT_RIGHT горизонтальная стерео-ось LED_D | LED_B
-        mNarrowPatterns[2] = (narrowP90[2] >= 0.015f) ? PATTERN_LEFT_RIGHT : PATTERN_OFF;
+        // Полоса 2 Snare 200-3500 Гц: PATTERN_LEFT_OR_RIGHT горизонтальный стерео-пинг-понг LED_D / LED_B
+        mNarrowPatterns[2] = (narrowP90[2] >= 0.015f) ? PATTERN_LEFT_OR_RIGHT : PATTERN_OFF;
 
-        // Полоса 3 Hi-Hat 3500-18000 Гц: PATTERN_TOP верхний купол LED_A
-        mNarrowPatterns[3] = (narrowP90[3] >= 0.015f) ? PATTERN_TOP : PATTERN_OFF;
+        // Полоса 3 Hi-Hat 3500-18000 Гц: PATTERN_TOP_OR_RIGHT верхняя диагональ
+        if (narrowP90[3] < 0.015f) {
+            mNarrowPatterns[3] = PATTERN_OFF;
+        } else if (dynamicContrast > 0.60f) {
+            mNarrowPatterns[3] = PATTERN_RANDOM_PATTERN;
+        } else {
+            mNarrowPatterns[3] = PATTERN_TOP_OR_RIGHT;
+        }
 
         // 6. Широкие полосы 12 полос: гейны, пороги и пространственное распределение
         float[] wideP90 = new float[WIDE_BANDS_COUNT];
@@ -1386,7 +1580,9 @@ public class AudioAnalyzer {
     }
 
     private void applyGt5PatternStyle(int style, int b1, int b2, int m1, int m2, int h1, int h2) {
+        boolean defaultOrRandom = (style != GT5_STYLE_STEREO_PINGPONG);
         for (int i = 0; i < WIDE_BANDS_COUNT; i++) {
+            mWideOrRandom[i] = defaultOrRandom;
             if (!mWideEnabled[i]) {
                 mWidePatterns[i] = PATTERN_OFF;
                 mWideColorCycle[i] = false;
@@ -1396,103 +1592,103 @@ public class AudioAnalyzer {
         switch (style) {
             case GT5_STYLE_STAGE_CLASSIC: // 1. Классическая сцена
                 if (b1 != -1) mWidePatterns[b1] = PATTERN_BOTTOM;
-                if (b2 != -1) mWidePatterns[b2] = PATTERN_TOP_BOTTOM;
-                if (m1 != -1) mWidePatterns[m1] = PATTERN_LEFT_RIGHT;
-                if (m2 != -1) mWidePatterns[m2] = PATTERN_TOP_LEFT;
+                if (b2 != -1) mWidePatterns[b2] = PATTERN_TOP_OR_BOTTOM;
+                if (m1 != -1) mWidePatterns[m1] = PATTERN_LEFT_OR_RIGHT;
+                if (m2 != -1) mWidePatterns[m2] = PATTERN_TOP_OR_LEFT;
                 if (h1 != -1) mWidePatterns[h1] = PATTERN_TOP;
-                if (h2 != -1) mWidePatterns[h2] = PATTERN_TOP_RIGHT;
+                if (h2 != -1) mWidePatterns[h2] = PATTERN_TOP_OR_RIGHT;
                 break;
 
             case GT5_STYLE_STEREO_PINGPONG: // 2. Стерео-Пинг-Понг
                 if (b1 != -1) mWidePatterns[b1] = PATTERN_BOTTOM;
-                if (b2 != -1) mWidePatterns[b2] = PATTERN_BOTTOM;
-                if (m1 != -1) mWidePatterns[m1] = PATTERN_LEFT;
-                if (m2 != -1) mWidePatterns[m2] = PATTERN_RIGHT;
-                if (h1 != -1) mWidePatterns[h1] = PATTERN_TOP;
-                if (h2 != -1) mWidePatterns[h2] = PATTERN_TOP_LEFT;
+                if (b2 != -1) mWidePatterns[b2] = PATTERN_TOP_OR_BOTTOM;
+                if (m1 != -1) mWidePatterns[m1] = PATTERN_LEFT_OR_RIGHT;
+                if (m2 != -1) mWidePatterns[m2] = PATTERN_LEFT_OR_RIGHT;
+                if (h1 != -1) mWidePatterns[h1] = PATTERN_TOP_OR_LEFT;
+                if (h2 != -1) mWidePatterns[h2] = PATTERN_TOP_OR_RIGHT;
                 break;
 
             case GT5_STYLE_CROSS_PULSE: // 3. Крест и Пульс
                 if (b1 != -1) mWidePatterns[b1] = PATTERN_BOTTOM;
-                if (b2 != -1) mWidePatterns[b2] = PATTERN_LEFT_RIGHT;
-                if (m1 != -1) mWidePatterns[m1] = PATTERN_TOP_BOTTOM;
-                if (m2 != -1) mWidePatterns[m2] = PATTERN_LEFT_RIGHT;
+                if (b2 != -1) mWidePatterns[b2] = PATTERN_TOP_OR_BOTTOM;
+                if (m1 != -1) mWidePatterns[m1] = PATTERN_LEFT_OR_RIGHT;
+                if (m2 != -1) mWidePatterns[m2] = PATTERN_TOP_OR_BOTTOM;
                 if (h1 != -1) mWidePatterns[h1] = PATTERN_TOP;
-                if (h2 != -1) mWidePatterns[h2] = PATTERN_TOP;
+                if (h2 != -1) mWidePatterns[h2] = PATTERN_RANDOM_PATTERN;
                 break;
 
             case GT5_STYLE_DIAGONAL_VORTEX: // 4. Диагональный вихрь
-                if (b1 != -1) mWidePatterns[b1] = PATTERN_BOTTOM_LEFT;
-                if (b2 != -1) mWidePatterns[b2] = PATTERN_BOTTOM_RIGHT;
-                if (m1 != -1) mWidePatterns[m1] = PATTERN_TOP_LEFT;
-                if (m2 != -1) mWidePatterns[m2] = PATTERN_BOTTOM_RIGHT;
-                if (h1 != -1) mWidePatterns[h1] = PATTERN_TOP_RIGHT;
-                if (h2 != -1) mWidePatterns[h2] = PATTERN_TOP_LEFT;
+                if (b1 != -1) mWidePatterns[b1] = PATTERN_BOTTOM_OR_LEFT;
+                if (b2 != -1) mWidePatterns[b2] = PATTERN_BOTTOM_OR_RIGHT;
+                if (m1 != -1) mWidePatterns[m1] = PATTERN_TOP_OR_LEFT;
+                if (m2 != -1) mWidePatterns[m2] = PATTERN_BOTTOM_OR_RIGHT;
+                if (h1 != -1) mWidePatterns[h1] = PATTERN_TOP_OR_RIGHT;
+                if (h2 != -1) mWidePatterns[h2] = PATTERN_RANDOM_PATTERN;
                 break;
 
             case GT5_STYLE_BEAT_SNIPER: // 5. Бит-Снайпер
                 if (b1 != -1) mWidePatterns[b1] = PATTERN_BOTTOM;
                 if (b2 != -1) mWidePatterns[b2] = PATTERN_OFF;
-                if (m1 != -1) mWidePatterns[m1] = PATTERN_TOP;
+                if (m1 != -1) mWidePatterns[m1] = PATTERN_LEFT_OR_RIGHT;
                 if (m2 != -1) mWidePatterns[m2] = PATTERN_OFF;
-                if (h1 != -1) mWidePatterns[h1] = PATTERN_RIGHT;
-                if (h2 != -1) mWidePatterns[h2] = PATTERN_LEFT;
+                if (h1 != -1) mWidePatterns[h1] = PATTERN_TOP_OR_RIGHT;
+                if (h2 != -1) mWidePatterns[h2] = PATTERN_TOP_OR_LEFT;
                 break;
 
             case GT5_STYLE_VERTICAL_ELEVATOR: // 6. Вертикальный эквалайзер
                 if (b1 != -1) mWidePatterns[b1] = PATTERN_BOTTOM;
-                if (b2 != -1) mWidePatterns[b2] = PATTERN_BOTTOM_LEFT;
-                if (m1 != -1) mWidePatterns[m1] = PATTERN_LEFT_RIGHT;
-                if (m2 != -1) mWidePatterns[m2] = PATTERN_TOP_LEFT;
+                if (b2 != -1) mWidePatterns[b2] = PATTERN_TOP_OR_BOTTOM;
+                if (m1 != -1) mWidePatterns[m1] = PATTERN_LEFT_OR_RIGHT;
+                if (m2 != -1) mWidePatterns[m2] = PATTERN_TOP_OR_LEFT;
                 if (h1 != -1) mWidePatterns[h1] = PATTERN_TOP;
-                if (h2 != -1) mWidePatterns[h2] = PATTERN_TOP_RIGHT;
+                if (h2 != -1) mWidePatterns[h2] = PATTERN_TOP_OR_RIGHT;
                 break;
 
             case GT5_STYLE_DROP_SLAM: // 7. Дроп-Слэм
                 if (b1 != -1) mWidePatterns[b1] = PATTERN_BOTTOM;
                 if (b2 != -1) mWidePatterns[b2] = PATTERN_TOP_BOTTOM;
-                if (m1 != -1) mWidePatterns[m1] = PATTERN_LEFT_RIGHT;
-                if (m2 != -1) mWidePatterns[m2] = PATTERN_LEFT_RIGHT;
+                if (m1 != -1) mWidePatterns[m1] = PATTERN_LEFT_OR_RIGHT;
+                if (m2 != -1) mWidePatterns[m2] = PATTERN_TOP_OR_LEFT;
                 if (h1 != -1) mWidePatterns[h1] = PATTERN_TOP;
                 if (h2 != -1) mWidePatterns[h2] = PATTERN_ALL;
                 break;
 
             case GT5_STYLE_PERIMETER_ORBIT: // 8. Периметр-Орбита
                 if (b1 != -1) mWidePatterns[b1] = PATTERN_BOTTOM;
-                if (b2 != -1) mWidePatterns[b2] = PATTERN_BOTTOM_LEFT;
-                if (m1 != -1) mWidePatterns[m1] = PATTERN_LEFT;
-                if (m2 != -1) mWidePatterns[m2] = PATTERN_TOP_LEFT;
+                if (b2 != -1) mWidePatterns[b2] = PATTERN_BOTTOM_OR_LEFT;
+                if (m1 != -1) mWidePatterns[m1] = PATTERN_LEFT_OR_RIGHT;
+                if (m2 != -1) mWidePatterns[m2] = PATTERN_TOP_OR_LEFT;
                 if (h1 != -1) mWidePatterns[h1] = PATTERN_TOP;
-                if (h2 != -1) mWidePatterns[h2] = PATTERN_RIGHT;
+                if (h2 != -1) mWidePatterns[h2] = PATTERN_TOP_OR_RIGHT;
                 break;
 
             case GT5_STYLE_VOCAL_BREATHE: // 9. Вокальное дыхание
                 if (b1 != -1) mWidePatterns[b1] = PATTERN_BOTTOM;
-                if (b2 != -1) mWidePatterns[b2] = PATTERN_BOTTOM;
-                if (m1 != -1) mWidePatterns[m1] = PATTERN_TOP_BOTTOM;
-                if (m2 != -1) mWidePatterns[m2] = PATTERN_LEFT_RIGHT;
+                if (b2 != -1) mWidePatterns[b2] = PATTERN_TOP_OR_BOTTOM;
+                if (m1 != -1) mWidePatterns[m1] = PATTERN_LEFT_OR_RIGHT;
+                if (m2 != -1) mWidePatterns[m2] = PATTERN_TOP_OR_RIGHT;
                 if (h1 != -1) mWidePatterns[h1] = PATTERN_TOP;
-                if (h2 != -1) mWidePatterns[h2] = PATTERN_TOP;
+                if (h2 != -1) mWidePatterns[h2] = PATTERN_TOP_OR_LEFT;
                 mEnableFInterp = true;
                 mFInterpSpeed = 12.0f;
                 break;
 
             case GT5_STYLE_ANTIPHASE: // 10. Антифазный взрыв
                 if (b1 != -1) mWidePatterns[b1] = PATTERN_BOTTOM;
-                if (b2 != -1) mWidePatterns[b2] = PATTERN_BOTTOM;
-                if (m1 != -1) mWidePatterns[m1] = PATTERN_LEFT_RIGHT;
-                if (m2 != -1) mWidePatterns[m2] = PATTERN_TOP_LEFT;
-                if (h1 != -1) mWidePatterns[h1] = PATTERN_TOP;
-                if (h2 != -1) mWidePatterns[h2] = PATTERN_TOP_RIGHT;
+                if (b2 != -1) mWidePatterns[b2] = PATTERN_TOP_OR_BOTTOM;
+                if (m1 != -1) mWidePatterns[m1] = PATTERN_LEFT_OR_RIGHT;
+                if (m2 != -1) mWidePatterns[m2] = PATTERN_TOP_OR_LEFT;
+                if (h1 != -1) mWidePatterns[h1] = PATTERN_TOP_OR_RIGHT;
+                if (h2 != -1) mWidePatterns[h2] = PATTERN_RANDOM_PATTERN;
                 break;
 
             default:
                 if (b1 != -1) mWidePatterns[b1] = PATTERN_BOTTOM;
-                if (b2 != -1) mWidePatterns[b2] = PATTERN_TOP_BOTTOM;
-                if (m1 != -1) mWidePatterns[m1] = PATTERN_LEFT_RIGHT;
-                if (m2 != -1) mWidePatterns[m2] = PATTERN_TOP_LEFT;
+                if (b2 != -1) mWidePatterns[b2] = PATTERN_TOP_OR_BOTTOM;
+                if (m1 != -1) mWidePatterns[m1] = PATTERN_LEFT_OR_RIGHT;
+                if (m2 != -1) mWidePatterns[m2] = PATTERN_TOP_OR_LEFT;
                 if (h1 != -1) mWidePatterns[h1] = PATTERN_TOP;
-                if (h2 != -1) mWidePatterns[h2] = PATTERN_TOP_RIGHT;
+                if (h2 != -1) mWidePatterns[h2] = PATTERN_TOP_OR_RIGHT;
                 break;
         }
     }
@@ -1878,6 +2074,16 @@ public class AudioAnalyzer {
                 mWideColorCycle[i] = preset.wideColorCycle[i];
             }
         }
+        if (preset.narrowOrRandom != null) {
+            for (int i = 0; i < Math.min(NARROW_BANDS_COUNT, preset.narrowOrRandom.length); i++) {
+                mNarrowOrRandom[i] = preset.narrowOrRandom[i];
+            }
+        }
+        if (preset.wideOrRandom != null) {
+            for (int i = 0; i < Math.min(WIDE_BANDS_COUNT, preset.wideOrRandom.length); i++) {
+                mWideOrRandom[i] = preset.wideOrRandom[i];
+            }
+        }
 
         saveSettings(context);
         AudioPresetManager.setActivePresetId(context, preset.id);
@@ -1923,6 +2129,8 @@ public class AudioAnalyzer {
         p.wideEnabled = mWideEnabled.clone();
         p.narrowColorCycle = mNarrowColorCycle.clone();
         p.wideColorCycle = mWideColorCycle.clone();
+        p.narrowOrRandom = mNarrowOrRandom.clone();
+        p.wideOrRandom = mWideOrRandom.clone();
         return p;
     }
 
@@ -2118,14 +2326,14 @@ public class AudioAnalyzer {
         // Gives each band its own dynamic headroom so snare and hi-hats remain lively
         for (int i = 0; i < NARROW_BANDS_COUNT; i++) {
             mNarrowCeilings[i] = Math.max(0.08f, Math.max(mNarrowCeilings[i] * 0.985f, mNarrowBands[i] * 1.10f));
-            float ratio = (mNarrowBands[i] / mNarrowCeilings[i]) * mSpectrumVisualGain;
+            float ratio = (mNarrowBands[i] / mNarrowCeilings[i]);
             float lvl = (float) Math.pow(Math.max(0.0f, Math.min(1.0f, ratio)), 1.25f);
             mResult.bandLevels[i] = lvl;
         }
 
         for (int i = 0; i < WIDE_BANDS_COUNT; i++) {
             mWideCeilings[i] = Math.max(0.06f, Math.max(mWideCeilings[i] * 0.985f, mWideBands[i] * 1.10f));
-            float ratio = (mWideBands[i] / mWideCeilings[i]) * mSpectrumVisualGain;
+            float ratio = (mWideBands[i] / mWideCeilings[i]);
             float lvl = (float) Math.pow(Math.max(0.0f, Math.min(1.0f, ratio)), 1.25f);
             mResult.wideLevels[i] = lvl;
             mWideCurvePoints[i] = 0.60f * mWideCurvePoints[i] + 0.40f * lvl;
@@ -2407,10 +2615,12 @@ public class AudioAnalyzer {
                             activeMask |= RealmeGlyphDriver.LED_ALL;
                             maxIntensity = Math.max(maxIntensity, mNarrowIntensities[i]);
                         }
-                    } else if (mNarrowIntensities[i] > 0.05f) {
-                        int mask = getPatternLedMask(mNarrowPatterns[i]);
-                        activeMask |= mask;
-                        maxIntensity = Math.max(maxIntensity, mNarrowIntensities[i]);
+                    } else {
+                        int mask = updateActiveBandMask(mNarrowPatterns[i], narrowHit[i], false, i);
+                        if (mNarrowIntensities[i] > 0.05f) {
+                            activeMask |= mask;
+                            maxIntensity = Math.max(maxIntensity, mNarrowIntensities[i]);
+                        }
                         if (narrowHit[i] && mask != 0) beatHit = true;
                     }
                 }
@@ -2432,10 +2642,12 @@ public class AudioAnalyzer {
                             activeMask |= RealmeGlyphDriver.LED_ALL;
                             maxIntensity = Math.max(maxIntensity, mWideIntensities[i]);
                         }
-                    } else if (mWideIntensities[i] > 0.05f) {
-                        int mask = getPatternLedMask(mWidePatterns[i]);
-                        activeMask |= mask;
-                        maxIntensity = Math.max(maxIntensity, mWideIntensities[i]);
+                    } else {
+                        int mask = updateActiveBandMask(mWidePatterns[i], wideHit[i], true, i);
+                        if (mWideIntensities[i] > 0.05f) {
+                            activeMask |= mask;
+                            maxIntensity = Math.max(maxIntensity, mWideIntensities[i]);
+                        }
                         if (wideHit[i] && mask != 0) beatHit = true;
                     }
                 }

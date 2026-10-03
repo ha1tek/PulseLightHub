@@ -44,6 +44,8 @@ public class AudioPreset {
     public boolean[] wideEnabled = new boolean[]{true, true, true, true, true, true, true, true, true, true, true, true};
     public boolean[] narrowColorCycle = new boolean[]{false, false, false, false};
     public boolean[] wideColorCycle = new boolean[12];
+    public boolean[] narrowOrRandom = new boolean[]{true, true, true, true};
+    public boolean[] wideOrRandom = new boolean[]{true, true, true, true, true, true, true, true, true, true, true, true};
 
     // Per-band trigger patterns
     public int[] narrowPatterns = new int[]{
@@ -183,6 +185,18 @@ public class AudioPreset {
                 for (boolean b : wideColorCycle) wcc.put(b);
             }
             obj.put("wideColorCycle", wcc);
+
+            JSONArray nor = new JSONArray();
+            if (narrowOrRandom != null) {
+                for (boolean b : narrowOrRandom) nor.put(b);
+            }
+            obj.put("narrowOrRandom", nor);
+
+            JSONArray wor = new JSONArray();
+            if (wideOrRandom != null) {
+                for (boolean b : wideOrRandom) wor.put(b);
+            }
+            obj.put("wideOrRandom", wor);
         } catch (JSONException ignored) {}
         return obj;
     }
@@ -290,6 +304,22 @@ public class AudioPreset {
                 for (int i = 0; i < wcc.length(); i++) p.wideColorCycle[i] = wcc.optBoolean(i, false);
             } else {
                 p.wideColorCycle = new boolean[12];
+            }
+
+            JSONArray nor = obj.optJSONArray("narrowOrRandom");
+            if (nor != null) {
+                p.narrowOrRandom = new boolean[Math.max(4, nor.length())];
+                for (int i = 0; i < nor.length(); i++) p.narrowOrRandom[i] = nor.optBoolean(i, true);
+            } else {
+                p.narrowOrRandom = new boolean[]{true, true, true, true};
+            }
+
+            JSONArray wor = obj.optJSONArray("wideOrRandom");
+            if (wor != null) {
+                p.wideOrRandom = new boolean[Math.max(12, wor.length())];
+                for (int i = 0; i < wor.length(); i++) p.wideOrRandom[i] = wor.optBoolean(i, true);
+            } else {
+                p.wideOrRandom = new boolean[]{true, true, true, true, true, true, true, true, true, true, true, true};
             }
         } catch (Throwable ignored) {}
         return p;

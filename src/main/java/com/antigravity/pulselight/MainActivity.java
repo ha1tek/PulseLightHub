@@ -108,13 +108,13 @@ public class MainActivity extends Activity {
     private View containerFastMode, containerDeepMode;
     private LinearLayout layoutQuickTriggersList;
     private final List<TextView> mQuickTriggerButtons = new ArrayList<>();
-    private ModernSwitch switchBandEnabled, switchBandColorCycle;
+    private ModernSwitch switchBandEnabled, switchBandColorCycle, switchBandOrRandom;
     private TextView tvSelectedBandTitle, tvSelectedBandGainVal;
     private SeekBar seekBandGain;
     private TextView tvSelectedBandThreshVal;
     private SeekBar seekBandThresh;
 
-    private final TextView[] mColPatternButtons = new TextView[12];
+    private final TextView[] mColPatternButtons = new TextView[20];
 
     // Preset Dropdown
     private LinearLayout layoutPresetDropdown;
@@ -245,6 +245,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        ThemeManager.updateAppIcon(this, ThemeManager.getAccentColor(this));
         applyThemeColors(ThemeManager.getBackgroundColor(this), ThemeManager.getAccentColor(this));
         updateDriverStatusBadge();
         syncColorTargetUI();
@@ -779,6 +780,8 @@ public class MainActivity extends Activity {
             if (tvSpectrumGainVal != null) {
                 tvSpectrumGainVal.setText(String.format(java.util.Locale.US, "%.2fx", gain));
             }
+            if (studioSpectrumVisualizer != null) studioSpectrumVisualizer.setVisualGain(gain);
+            if (engineSpectrumVisualizer != null) engineSpectrumVisualizer.setVisualGain(gain);
             seekSpectrumGain.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
                 @Override
                 public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
@@ -786,6 +789,8 @@ public class MainActivity extends Activity {
                         float g = 0.5f + (progress / 50.0f) * 2.5f;
                         g = Math.round(g * 100.0f) / 100.0f;
                         mAudioAnalyzer.setSpectrumVisualGain(g, MainActivity.this);
+                        if (studioSpectrumVisualizer != null) studioSpectrumVisualizer.setVisualGain(g);
+                        if (engineSpectrumVisualizer != null) engineSpectrumVisualizer.setVisualGain(g);
                         if (tvSpectrumGainVal != null) {
                             tvSpectrumGainVal.setText(String.format(java.util.Locale.US, "%.2fx", g));
                         }
@@ -804,6 +809,19 @@ public class MainActivity extends Activity {
 
         switchBandEnabled = findViewById(R.id.switch_band_enabled);
         switchBandColorCycle = findViewById(R.id.switch_band_color_cycle);
+        switchBandOrRandom = findViewById(R.id.switch_band_or_random);
+        if (switchBandOrRandom != null) {
+            switchBandOrRandom.setOnCheckedChangeListener((view, isChecked) -> {
+                if (mAudioAnalyzer == null) return;
+                if (mSelectedBandIsWide) {
+                    mAudioAnalyzer.setWideOrRandom(mSelectedBandIndex, isChecked);
+                } else {
+                    mAudioAnalyzer.setNarrowOrRandom(mSelectedBandIndex, isChecked);
+                }
+                mAudioAnalyzer.saveSettings(MainActivity.this);
+                PulseAudioService.reloadSettings(MainActivity.this);
+            });
+        }
 
         if (btnModeFast != null) btnModeFast.setOnClickListener(v -> setStudioAnalysisMode(AudioAnalyzer.STUDIO_MODE_FAST));
         if (btnModeDeep != null) btnModeDeep.setOnClickListener(v -> setStudioAnalysisMode(AudioAnalyzer.STUDIO_MODE_DEEP));
@@ -881,7 +899,15 @@ public class MainActivity extends Activity {
         mColPatternButtons[8] = findViewById(R.id.pattern_col_top_right);
         mColPatternButtons[9] = findViewById(R.id.pattern_col_bottom_left);
         mColPatternButtons[10] = findViewById(R.id.pattern_col_bottom_right);
-        mColPatternButtons[11] = findViewById(R.id.pattern_col_all);
+        mColPatternButtons[11] = findViewById(R.id.pattern_col_top_or_bottom);
+        mColPatternButtons[12] = findViewById(R.id.pattern_col_left_or_right);
+        mColPatternButtons[13] = findViewById(R.id.pattern_col_top_or_left);
+        mColPatternButtons[14] = findViewById(R.id.pattern_col_top_or_right);
+        mColPatternButtons[15] = findViewById(R.id.pattern_col_bottom_or_left);
+        mColPatternButtons[16] = findViewById(R.id.pattern_col_bottom_or_right);
+        mColPatternButtons[17] = findViewById(R.id.pattern_col_random_single);
+        mColPatternButtons[18] = findViewById(R.id.pattern_col_random_pattern);
+        mColPatternButtons[19] = findViewById(R.id.pattern_col_all);
 
         final int[] colPatternVals = {
             AudioAnalyzer.PATTERN_OFF,
@@ -895,6 +921,14 @@ public class MainActivity extends Activity {
             AudioAnalyzer.PATTERN_TOP_RIGHT,
             AudioAnalyzer.PATTERN_BOTTOM_LEFT,
             AudioAnalyzer.PATTERN_BOTTOM_RIGHT,
+            AudioAnalyzer.PATTERN_TOP_OR_BOTTOM,
+            AudioAnalyzer.PATTERN_LEFT_OR_RIGHT,
+            AudioAnalyzer.PATTERN_TOP_OR_LEFT,
+            AudioAnalyzer.PATTERN_TOP_OR_RIGHT,
+            AudioAnalyzer.PATTERN_BOTTOM_OR_LEFT,
+            AudioAnalyzer.PATTERN_BOTTOM_OR_RIGHT,
+            AudioAnalyzer.PATTERN_RANDOM_SINGLE,
+            AudioAnalyzer.PATTERN_RANDOM_PATTERN,
             AudioAnalyzer.PATTERN_ALL
         };
 
@@ -1342,6 +1376,8 @@ public class MainActivity extends Activity {
             if (tvSpectrumGainVal != null) {
                 tvSpectrumGainVal.setText(String.format(java.util.Locale.US, "%.2fx", gain));
             }
+            if (studioSpectrumVisualizer != null) studioSpectrumVisualizer.setVisualGain(gain);
+            if (engineSpectrumVisualizer != null) engineSpectrumVisualizer.setVisualGain(gain);
         }
 
         // Filters UI
@@ -1592,6 +1628,14 @@ public class MainActivity extends Activity {
         AudioAnalyzer.PATTERN_TOP_RIGHT,
         AudioAnalyzer.PATTERN_BOTTOM_LEFT,
         AudioAnalyzer.PATTERN_BOTTOM_RIGHT,
+        AudioAnalyzer.PATTERN_TOP_OR_BOTTOM,
+        AudioAnalyzer.PATTERN_LEFT_OR_RIGHT,
+        AudioAnalyzer.PATTERN_TOP_OR_LEFT,
+        AudioAnalyzer.PATTERN_TOP_OR_RIGHT,
+        AudioAnalyzer.PATTERN_BOTTOM_OR_LEFT,
+        AudioAnalyzer.PATTERN_BOTTOM_OR_RIGHT,
+        AudioAnalyzer.PATTERN_RANDOM_SINGLE,
+        AudioAnalyzer.PATTERN_RANDOM_PATTERN,
         AudioAnalyzer.PATTERN_ALL
     };
 
@@ -1607,6 +1651,18 @@ public class MainActivity extends Activity {
         updateBandPatternButtonsUI();
 
         int mask = AudioAnalyzer.getPatternLedMask(patternIndex);
+        if (patternIndex == AudioAnalyzer.PATTERN_RANDOM_SINGLE) {
+            int[] all4 = { RealmeGlyphDriver.LED_A, RealmeGlyphDriver.LED_B, RealmeGlyphDriver.LED_C, RealmeGlyphDriver.LED_D };
+            mask = all4[new java.util.Random().nextInt(4)];
+        } else if (patternIndex == AudioAnalyzer.PATTERN_RANDOM_PATTERN) {
+            int[] previewPool = {
+                RealmeGlyphDriver.LED_A, RealmeGlyphDriver.LED_B, RealmeGlyphDriver.LED_C, RealmeGlyphDriver.LED_D,
+                RealmeGlyphDriver.LED_A | RealmeGlyphDriver.LED_C, RealmeGlyphDriver.LED_D | RealmeGlyphDriver.LED_B,
+                RealmeGlyphDriver.LED_A | RealmeGlyphDriver.LED_D, RealmeGlyphDriver.LED_A | RealmeGlyphDriver.LED_B,
+                RealmeGlyphDriver.LED_ALL
+            };
+            mask = previewPool[new java.util.Random().nextInt(previewPool.length)];
+        }
         int curColor = GlyphColorManager.getUnifiedColor(this);
         if (DeviceModelManager.isGtNeo5(this)) {
             if (patternIndex == AudioAnalyzer.PATTERN_COLOR_CYCLE || patternIndex == AudioAnalyzer.PATTERN_FLASH_AND_COLOR_CYCLE) {
@@ -1660,8 +1716,21 @@ public class MainActivity extends Activity {
         if (btnNeo5FlashColor != null) {
             updatePill(btnNeo5FlashColor, isFlashColor);
         }
-        if (btnNeo5Deactivate != null) {
-            updatePill(btnNeo5Deactivate, isDeactivated);
+        if (switchBandOrRandom != null) {
+            boolean isOrRand = mSelectedBandIsWide
+                    ? mAudioAnalyzer.isWideOrRandom(mSelectedBandIndex)
+                    : mAudioAnalyzer.isNarrowOrRandom(mSelectedBandIndex);
+            switchBandOrRandom.setOnCheckedChangeListener(null);
+            switchBandOrRandom.setChecked(isOrRand);
+            switchBandOrRandom.setOnCheckedChangeListener((view, isChecked) -> {
+                if (mSelectedBandIsWide) {
+                    mAudioAnalyzer.setWideOrRandom(mSelectedBandIndex, isChecked);
+                } else {
+                    mAudioAnalyzer.setNarrowOrRandom(mSelectedBandIndex, isChecked);
+                }
+                mAudioAnalyzer.saveSettings(MainActivity.this);
+                PulseAudioService.reloadSettings(MainActivity.this);
+            });
         }
 
         if (switchBandColorCycle != null) {

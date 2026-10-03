@@ -1,11 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/layout_root"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:fitsSystemWindows="true"
-    android:background="@color/bg_dark">
+    android:background="@color/black">
+
+    <LinearLayout
+        android:id="@+id/layout_root"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:fitsSystemWindows="true"
+        android:background="@color/bg_dark">
 
     <!-- Top Fixed Header Bar -->
     <LinearLayout
@@ -2701,6 +2706,73 @@
                     </LinearLayout>
                 </LinearLayout>
 
+                <!-- SCREEN MIRRORING CARD -->
+                <LinearLayout
+                    android:id="@+id/card_screen_mirror"
+                    android:tag="themed_card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:orientation="vertical"
+                    android:background="@drawable/bg_card_dark"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:id="@+id/tag_screen_mirror"
+                        android:tag="accent_tag"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="ДУБЛИРОВАНИЕ НА ЭКРАН"
+                        android:textColor="@color/volt_lime"
+                        android:textSize="11sp"
+                        android:letterSpacing="0.08"
+                        android:textStyle="bold" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Режим «Дублирование на экран»"
+                                android:textColor="@color/text_white"
+                                android:textSize="14sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="3dp"
+                                android:text="Экран становится черным, а края дисплея мерцают цветами глиф"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+
+                        <com.antigravity.pulselight.ModernSwitch
+                            android:id="@+id/switch_screen_mirror"
+                            android:layout_width="48dp"
+                            android:layout_height="28dp" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="При перевороте смартфона экраном вниз рамка дисплея подсвечивает поверхность стола синхронно с глифами. Для выхода дважды нажмите на экран."
+                        android:textColor="@color/text_muted"
+                        android:textSize="11sp" />
+                </LinearLayout>
+
                 <!-- QUICK SETTINGS TILES CARD -->
                 <LinearLayout
                     android:tag="themed_card"
@@ -3119,4 +3191,13 @@
         </ScrollView>
 
     </FrameLayout>
-</LinearLayout>
+    </LinearLayout>
+
+    <!-- Fullscreen Screen Mirroring Overlay -->
+    <com.antigravity.pulselight.ScreenMirrorOverlayView
+        android:id="@+id/screen_mirror_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone" />
+
+</FrameLayout>

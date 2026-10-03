@@ -34,6 +34,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
+import android.view.WindowManager;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
@@ -161,6 +162,11 @@ public class MainActivity extends Activity {
     private RealmeGlyphView previewGlyphGt5, previewGlyphGtNeo5;
     private TextView tvLabelModelGt5, tvLabelModelGtNeo5;
 
+    // Screen Mirroring (Edge Illumination)
+    private ModernSwitch switchScreenMirror;
+    private ScreenMirrorOverlayView screenMirrorOverlay;
+    private boolean mIsScreenMirrorActive = false;
+
     // Band Patterns vs Neo 5 Single Glyph Reaction
     private View containerBandPatterns, containerNeo5BandReaction;
     private TextView btnNeo5Activate, btnNeo5Color, btnNeo5FlashColor, btnNeo5Deactivate;
@@ -281,7 +287,19 @@ public class MainActivity extends Activity {
     @Override
     protected void onPause() {
         super.onPause();
+        if (mIsScreenMirrorActive) {
+            exitScreenMirror();
+        }
         PulseAudioService.setFrameListener(null);
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (mIsScreenMirrorActive) {
+            exitScreenMirror();
+            return;
+        }
+        super.onBackPressed();
     }
 
     private void attachFrameListener() {
@@ -321,6 +339,19 @@ public class MainActivity extends Activity {
                         glyphVectorView.setSegmentIntensity(result.activeLedMask, result.intensity, currentColor);
                     } else {
                         glyphVectorView.fadeSegmentToResting(RealmeGlyphDriver.LED_ALL, 120);
+                    }
+                }
+
+                if (mIsScreenMirrorActive && screenMirrorOverlay != null) {
+                    if (result.activeLedMask != 0) {
+                        int colA = (glyphVectorView != null) ? glyphVectorView.getSegmentColor(RealmeGlyphDriver.LED_A) : currentColor;
+                        int colB = (glyphVectorView != null) ? glyphVectorView.getSegmentColor(RealmeGlyphDriver.LED_B) : currentColor;
+                        int colC = (glyphVectorView != null) ? glyphVectorView.getSegmentColor(RealmeGlyphDriver.LED_C) : currentColor;
+                        int colD = (glyphVectorView != null) ? glyphVectorView.getSegmentColor(RealmeGlyphDriver.LED_D) : currentColor;
+                        screenMirrorOverlay.setSegmentIntensity(result.activeLedMask, result.intensity, colA, colB, colC, colD);
+                    } else {
+                        int decay = (mAudioAnalyzer != null) ? mAudioAnalyzer.getDecayMs() : 120;
+                        screenMirrorOverlay.fadeSegmentToResting(RealmeGlyphDriver.LED_ALL, decay);
                     }
                 }
             });
@@ -2079,6 +2110,7 @@ public class MainActivity extends Activity {
         paletteAccentColor = findViewById(R.id.palette_accent_color);
         setupThemeControls();
         setupDeviceModelControls();
+        setupScreenMirrorControls();
         setupQuickSettingsTileControls();
 
         tvSensitivityValue = findViewById(R.id.tv_sensitivity_value);
@@ -2208,6 +2240,68 @@ public class MainActivity extends Activity {
         }
 
         updateDeviceModelUI(DeviceModelManager.getDeviceModel(this), false);
+    }
+
+    private void setupScreenMirrorControls() {
+        switchScreenMirror = findViewById(R.id.switch_screen_mirror);
+        screenMirrorOverlay = findViewById(R.id.screen_mirror_overlay);
+
+        if (screenMirrorOverlay != null) {
+            screenMirrorOverlay.setDismissListener(this::exitScreenMirror);
+        }
+
+        if (switchScreenMirror != null) {
+            switchScreenMirror.setOnCheckedChangeListener((view, isChecked) -> {
+                if (isChecked) {
+                    enterScreenMirror();
+                } else {
+                    exitScreenMirror();
+                }
+            });
+        }
+    }
+
+    private void enterScreenMirror() {
+        if (mIsScreenMirrorActive) return;
+        mIsScreenMirrorActive = true;
+        if (screenMirrorOverlay != null) {
+            screenMirrorOverlay.setVisibility(View.VISIBLE);
+            screenMirrorOverlay.show();
+        }
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        View decor = getWindow().getDecorView();
+        decor.setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_FULLSCREEN
+                | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+        );
+
+        if (!PulseAudioService.isRunning() || !PulseAudioService.isEngineEnabled()) {
+            if (PulseAudioService.hasProjectionData()) {
+                PulseLightingCoordinator.activateAudio(this);
+            } else if (switchAudioEngine != null && !switchAudioEngine.isChecked()) {
+                switchAudioEngine.setChecked(true);
+            }
+        }
+    }
+
+    private void exitScreenMirror() {
+        if (!mIsScreenMirrorActive) return;
+        mIsScreenMirrorActive = false;
+        if (screenMirrorOverlay != null) {
+            screenMirrorOverlay.turnOff();
+            screenMirrorOverlay.setVisibility(View.GONE);
+        }
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        View decor = getWindow().getDecorView();
+        decor.setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
+
+        if (switchScreenMirror != null && switchScreenMirror.isChecked()) {
+            switchScreenMirror.setChecked(false);
+        }
     }
 
     private void setupQuickSettingsTileControls() {

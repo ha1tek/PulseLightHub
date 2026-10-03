@@ -6,7 +6,7 @@
 [![Network](https://img.shields.io/badge/Network-100%25_Offline-00E5FF.svg?style=flat-square)](https://github.com/ha1tek/PulseLightHub)
 [![DSP](https://img.shields.io/badge/Audio_DSP-aubio_HFC_+_RMS-blueviolet.svg?style=flat-square)](https://github.com/ha1tek/PulseLightHub)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
-[![Release](https://img.shields.io/badge/Release-v1.6-brightgreen.svg?style=flat-square)](https://github.com/ha1tek/PulseLightHub/releases/tag/v1.6)
+[![Release](https://img.shields.io/badge/Release-v1.6.1-brightgreen.svg?style=flat-square)](https://github.com/ha1tek/PulseLightHub/releases/tag/v1.6.1)
 
 Pulse Light Hub — высокопроизводительный автономный музыкальный визуализатор для RGB подсветки Awakening Halo смартфонов Realme GT 5 и Realme GT Neo 5. Приложение анализирует системный звук в реальном времени с нулевой задержкой и управляет сегментами глифа через прямой нативный интерфейс аппаратного контроллера.
 
@@ -15,6 +15,7 @@ Pulse Light Hub — высокопроизводительный автоном�
 ## Ключевые особенности
 
 - Прямой доступ к аппаратному драйверу: управление подсветкой через Binder IPC транзакцию 75 службы IPowerManager без рут-прав, без фоновых демонов и без сторонних утилит.
+- Режим «Дублирование на экран»: световая рамка по краям OLED дисплея синхронно дублирует глифы на черном фоне, подсвечивая стол при положении экраном вниз.
 - Поддержка двух моделей смартфонов: полная аппаратная поддержка 4-сегментной матрицы Realme GT 5 и единой RGB зоны Realme GT Neo 5.
 - Профессиональный DSP движок: многополосный спектральный анализ на базе алгоритмов aubio HFC и среднеквадратичной интеграции энергии RMS.
 - Два режима студии: быстрый 4-полосный режим Fast и глубокий 12-полосный режим Deep с интерактивным выбором полосы по нажатию на столбец спектрограммы.

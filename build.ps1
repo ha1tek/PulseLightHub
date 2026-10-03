@@ -9,7 +9,7 @@ $env:PATH = "$jdk\bin;$env:PATH"
 $javac = "$jdk\bin\javac.exe"
 $jar = "$jdk\bin\jar.exe"
 $adb = "C:\platform-tools\adb.exe"
-$device = "192.168.1.3:42619"
+$device = "192.168.1.3:43331"
 
 Write-Host "=== Building PulseLightHub (Offline Architecture) ==="
 New-Item -ItemType Directory -Force -Path "$projectDir\build\gen", "$projectDir\build\classes", "$projectDir\build\dex" | Out-Null

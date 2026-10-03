@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Backgrounds -->
+    <color name="black">#000000</color>
     <color name="bg_dark">#0B0C0E</color>
     <color name="surface_card">#16171B</color>
     <color name="surface_card_alt">#1D1E24</color>
